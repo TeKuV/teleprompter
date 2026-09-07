@@ -1,0 +1,460 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+    cursor: none;
+}
+
+.display-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.timer-display {
+    background: #1a1a1a;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #333;
+    min-height: 70px;
+}
+
+.speed-hud {
+    min-width: 72px;
+    padding: 4px 12px;
+    border-radius: 8px;
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+#countdown-timer {
+    font-size: 28px;
+    font-weight: bold;
+    color: #28a745;
+    font-family: 'Courier New', monospace;
+}
+
+#countdown-timer.warning {
+    color: #ffc107;
+}
+
+#countdown-timer.danger {
+    color: #dc3545;
+}
+
+#elapsed-time {
+    font-size: 20px;
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+}
+
+.text-area {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #000;
+}
+
+.reading-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    height: var(--reading-line-thickness, 2px);
+    top: var(--reading-line-pos, 50%);
+    background: var(--reading-line-color, #ffffff);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--reading-line-color, #fff) 55%, transparent);
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.reading-line::before,
+.reading-line::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 14px;
+    height: 10px;
+    border: 2px solid var(--reading-line-color, #ffffff);
+    transform: translateY(-50%);
+}
+
+.reading-line::before {
+    left: 12px;
+    border-right: 0;
+}
+
+.reading-line::after {
+    right: 12px;
+    border-left: 0;
+}
+
+#prompter-text {
+    padding: 40px;
+    font-size: 48px;
+    line-height: 1.6;
+    font-weight: 400;
+    text-align: center;
+    position: absolute;
+    width: 100%;
+    top: 80%;
+    transform: translateY(0);
+    will-change: transform;
+    white-space: pre-wrap;
+}
+
+#prompter-text p,
+#prompter-text div {
+    margin-bottom: 40px;
+}
+
+#prompter-text b,
+#prompter-text strong {
+    font-weight: 700;
+}
+
+#prompter-text i,
+#prompter-text em {
+    font-style: italic;
+}
+
+#prompter-text u {
+    text-decoration: underline;
+}
+
+#prompter-text s,
+#prompter-text strike,
+#prompter-text del {
+    text-decoration: line-through;
+}
+
+#prompter-text [style*="text-align: left"],
+#prompter-text [align="left"] {
+    text-align: left;
+}
+
+#prompter-text [style*="text-align: right"],
+#prompter-text [align="right"] {
+    text-align: right;
+}
+
+#prompter-text [style*="text-align: justify"],
+#prompter-text [align="justify"] {
+    text-align: justify;
+}
+
+#prompter-text [style*="text-align: center"],
+#prompter-text [align="center"] {
+    text-align: center;
+}
+
+#prompter-text span[style*="background"] {
+    padding: 0 0.12em;
+    border-radius: 0.12em;
+}
+
+#prompter-text ul,
+#prompter-text ol {
+    display: inline-block;
+    text-align: left;
+    margin: 0 auto 40px;
+    padding-left: 1.4em;
+}
+
+#prompter-text li {
+    margin-bottom: 0.4em;
+}
+
+#prompter-text .script-bookmark {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 0 10px;
+    border-radius: 6px;
+    background: #f5c518;
+    color: #111;
+    font-size: 0.55em;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}
+
+.scheduled-countdown {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 40px 60px;
+    border-radius: 20px;
+    border: 3px solid #ffc107;
+    display: none;
+    z-index: 100;
+}
+
+.scheduled-countdown.active {
+    display: block;
+}
+
+.countdown-label {
+    font-size: 24px;
+    color: #ffc107;
+    margin-bottom: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.countdown-time {
+    font-size: 72px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.countdown-target {
+    font-size: 18px;
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+}
+
+/* Thumbnail inside the controller: same page, without the operator overlays. */
+body.preview {
+    cursor: default;
+}
+
+body.preview .connection-status,
+body.preview .next-cue {
+    display: none;
+}
+
+.next-cue {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    z-index: 6;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 18px;
+    border: 1px solid #3a3a3a;
+    border-radius: 10px;
+    background: rgba(10, 10, 10, 0.78);
+    color: #fff;
+    pointer-events: none;
+}
+
+.next-cue[hidden] {
+    display: none;
+}
+
+.next-cue-in {
+    color: #f5c518;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+}
+
+.next-cue-label {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.fullscreen-hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 18px 32px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid #ffc107;
+    color: #ffc107;
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: none;
+    z-index: 1100;
+}
+
+.fullscreen-hint.active {
+    display: block;
+}
+
+.on-air-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.on-air-indicator.active {
+    opacity: 1;
+}
+
+.on-air-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #dc3545;
+    margin-right: 10px;
+    animation: pulse 1.5s infinite;
+}
+
+.on-air-text {
+    color: #dc3545;
+    letter-spacing: 1px;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+.connection-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 1000;
+}
+
+.status-indicator {
+    font-size: 20px;
+    margin-right: 8px;
+}
+
+.status-indicator.connected {
+    color: #28a745;
+}
+
+.status-indicator.disconnected {
+    color: #dc3545;
+}
+
+.status-indicator.connecting {
+    color: #ffc107;
+}
+
+.status-text {
+    font-weight: bold;
+}
+
+/* Full screen mode adjustments */
+.fullscreen {
+    cursor: none;
+}
+
+.fullscreen .connection-status {
+    opacity: 0.3;
+    transition: opacity 0.3s;
+}
+
+.fullscreen .connection-status:hover {
+    opacity: 1;
+}
+
+/* Large text mode for better readability */
+.large-text #prompter-text {
+    font-size: 64px;
+}
+
+.medium-text #prompter-text {
+    font-size: 48px;
+}
+
+.small-text #prompter-text {
+    font-size: 32px;
+}
+
+/* Mirror mode for using with teleprompter hardware */
+.mirror-mode {
+    transform: scaleX(-1);
+}
+
+@media (max-width: 768px) {
+    #prompter-text {
+        font-size: 32px;
+        padding: 20px;
+    }
+    
+    .timer-display {
+        padding: 10px 15px;
+    }
+    
+    #countdown-timer {
+        font-size: 24px;
+    }
+    
+    #elapsed-time {
+        font-size: 18px;
+    }
+}
+/* Pre-roll count shown on the display before the scroll starts. */
+.preroll {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 160px;
+    padding: 20px 40px;
+    border-radius: 24px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 3px solid #ffc107;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 140px;
+    font-weight: bold;
+    line-height: 1;
+    text-align: center;
+    z-index: 120;
+}
+
+.preroll.is-beat {
+    animation: preroll-pop 0.9s ease-out;
+}
+
+@keyframes preroll-pop {
+    from { transform: translate(-50%, -50%) scale(1.25); opacity: 0.4; }
+    to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}

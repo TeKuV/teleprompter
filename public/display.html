@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teleprompter Display</title>
+    <link rel="stylesheet" href="css/display.css">
+</head>
+<body>
+    <div class="display-container">
+        <div class="timer-display">
+            <div id="countdown-timer">10:00</div>
+            <div id="speed-hud" class="speed-hud">1.0x</div>
+            <div id="elapsed-time">00:00</div>
+        </div>
+        
+        <div class="text-area">
+            <div class="reading-line" id="reading-line" hidden></div>
+            <div class="scheduled-countdown" id="scheduled-countdown">
+                <div class="countdown-label">Scheduled Start In:</div>
+                <div class="countdown-time" id="countdown-time">00:00:00</div>
+                <div class="countdown-target" id="countdown-target">Starting at: --:--:--</div>
+            </div>
+            
+            <div class="preroll" id="preroll" hidden></div>
+
+            <div class="next-cue" id="next-cue" hidden>
+                <span class="next-cue-in" id="next-cue-in">in 15s</span>
+                <span class="next-cue-label" id="next-cue-label"></span>
+            </div>
+            <div id="prompter-text" class="prompter-rich">
+                <p>Waiting for controller connection...</p>
+                <p>Open the controller page to load your manuscript and begin prompting.</p>
+            </div>
+        </div>
+        
+        <div class="fullscreen-hint" id="fullscreen-hint">Press any key for fullscreen</div>
+        
+        <div class="on-air-indicator" id="on-air-indicator">
+            <div class="on-air-light"></div>
+            <span class="on-air-text">ON AIR</span>
+        </div>
+        
+        <div class="connection-status" id="connection-status">
+            <span class="status-indicator disconnected">●</span>
+            <span class="status-text">Disconnected</span>
+        </div>
+    </div>
+    
+    <script src="js/display.js"></script>
+</body>
+</html>

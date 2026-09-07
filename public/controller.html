@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Africa24TV Prompter</title>
+    <script src="js/theme.js"></script>
+    <link rel="stylesheet" href="css/controller.css">
+    <link rel="stylesheet" href="css/studio-controls.css">
+    <link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+    <div class="controller-container">
+        <header class="controller-header">
+            <h1>Africa24TV Prompter</h1>
+            <div class="connection-info">
+                <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="true" aria-label="Toggle light and dark mode" title="Switch to light mode">
+                    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg>
+                    <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
+                    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13a6 6 0 1 1-5-9 7 7 0 1 0 5 9z"/></svg>
+                    <span class="theme-toggle-text" data-theme-label>Dark</span>
+                </button>
+                <div class="connection-status" id="connection-status">
+                    <span class="status-indicator disconnected">●</span>
+                    <span class="status-text">Disconnected</span>
+                </div>
+                <div class="display-url">
+                    <label>Display URL:</label>
+                    <span id="display-url">Open display.html</span>
+                    <button id="copy-url">Copy</button>
+                </div>
+                <div class="display-url" id="lan-url-row" hidden>
+                    <label>Phone remote:</label>
+                    <span id="lan-url">-</span>
+                    <button id="copy-lan-url">Copy</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="controller-content">
+            <div class="controls-section">
+                <div class="control-group live-preview-group">
+                    <div class="live-preview-head">
+                        <label>Live Preview</label>
+                        <div class="live-preview-actions">
+                            <button type="button" class="live-preview-mirror" id="preview-mirror" aria-pressed="false" title="Mirror preview">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 2v2M12 8v2M12 14v2M12 20v2"/></svg>
+                                Mirror
+                            </button>
+                            <span class="live-preview-badge" id="preview-badge">PAUSED</span>
+                        </div>
+                    </div>
+                    <div class="live-preview" id="live-preview">
+                        <div class="live-preview-stage" id="preview-stage">
+                            <iframe id="preview-frame" src="display.html?preview=1" title="Display preview" scrolling="no"></iframe>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls-scroll">
+                <div class="control-group">
+                    <label for="file-upload">Upload Manuscript:</label>
+                    <input type="file" id="file-upload" accept=".txt,.docx,.pdf">
+                    <div class="file-options">
+                        <div class="editor-format-control" id="formatting-options">
+                            <button type="button" class="editor-format-btn" id="auto-format" aria-pressed="true" title="Auto-format on upload">
+                                <span>Format Upload</span>
+                            </button>
+                            <button type="button" class="editor-format-settings" id="format-settings" aria-expanded="false" aria-controls="format-panel" title="Formatting options">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="editor-format-panel" id="format-panel" hidden>
+                                <label class="editor-format-option">
+                                    <input type="checkbox" id="format-caps" checked>
+                                    Convert to UPPERCASE
+                                </label>
+                                <label class="editor-format-option">
+                                    <input type="checkbox" id="format-sentences" checked>
+                                    One sentence per line
+                                </label>
+                                <label class="editor-format-option">
+                                    <input type="checkbox" id="format-paragraphs" checked>
+                                    Add paragraph breaks
+                                </label>
+                                <label class="editor-format-option">
+                                    <input type="checkbox" id="format-punctuation" checked>
+                                    Enhance punctuation pauses
+                                </label>
+                            </div>
+                        </div>
+                        <button id="clear-text">Clear</button>
+                        <button id="format-text" class="format-btn">Format for Teleprompter</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="speed-panel">
+                        <div class="speed-panel-head">
+                            <label for="speed-control">Reading speed</label>
+                            <span class="speed-wpm" id="speed-wpm">150 wpm</span>
+                        </div>
+                        <div class="speed-slider-row">
+                            <input type="range" id="speed-control" min="0.133" max="5" step="0.01" value="1">
+                            <output id="speed-display" class="speed-readout">1.0x</output>
+                        </div>
+                        <div class="speed-presets" id="speed-presets-primary"></div>
+                        <div class="speed-stats">
+                            <span>Words <strong id="word-count">0</strong></span>
+                            <span>Duration <strong id="expected-duration">0:00</strong></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="scheduled-start">Scheduled Start Time:</label>
+                    <div class="scheduled-time-group">
+                        <input type="datetime-local" id="scheduled-start" step="1">
+                        <button id="clear-schedule" class="control-btn">Clear</button>
+                    </div>
+                    <div class="schedule-info" id="schedule-info">
+                        <span>No scheduled start time set</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <div class="text-preview">
+                <div class="editor-header">
+                    <h3>Script editor</h3>
+                    <div class="editor-header-actions">
+                        <button type="button" id="export-txt">Export TXT</button>
+                        <button type="button" id="export-html">Export HTML</button>
+                    </div>
+                </div>
+                <div class="editor-shell">
+                    <div class="editor-toolbar" id="editor-toolbar"></div>
+                    <div class="editor-find" id="editor-find" hidden></div>
+                    <div class="preview-area">
+                        <div id="text-preview" class="prompter-rich" contenteditable="true" spellcheck="true">
+                            <p>Welcome to the Teleprompter Controller!</p>
+                            <p>Upload your manuscript or edit this text directly.</p>
+                            <p>The changes will be synchronized with the display in real-time.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <div class="script-progress">
+                <input type="range" id="script-progress" min="0" max="1000" value="0" step="1" aria-label="Script progress">
+            </div>
+            <div class="control-panel-main">
+            <div class="playback-controls">
+                <button type="button" id="play-btn" class="control-btn start" aria-pressed="false" aria-label="Start">
+                    <span class="btn-icon" data-play-icon>▶</span>
+                    <span data-play-label>Start</span>
+                </button>
+                <button id="reset-btn" class="control-btn reset">
+                    <span class="btn-icon">⏹</span>
+                    Reset
+                </button>
+            </div>
+
+            <div class="display-toggles" role="group" aria-label="Display options">
+                <label class="display-toggle" title="Mirror Mode">
+                    <input type="checkbox" id="mirror-mode" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 2v2M12 8v2M12 14v2M12 20v2"/></svg>
+                    <span>Mirror</span>
+                </label>
+                <label class="display-toggle" title="Hide Timer">
+                    <input type="checkbox" id="hide-timer" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4M12 12v-2M4.6 11a8 8 0 0 0 10.4 10.4M7.4 7.4a8 8 0 0 1 10.3 10.3M2 2l20 20"/></svg>
+                    <span>Timer</span>
+                </label>
+                <label class="display-toggle" title="On Air Indicator">
+                    <input type="checkbox" id="on-air-mode" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2M7.8 16.2a6 6 0 0 1 0-8.4"/></svg>
+                    <span>On air</span>
+                </label>
+                <div class="display-line-control">
+                    <button type="button" class="display-toggle" id="reading-line-btn" aria-pressed="false" title="Reading line">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M7 9v6M17 9v6"/></svg>
+                        <span>Line</span>
+                    </button>
+                    <button type="button" class="display-line-settings" id="reading-line-settings" aria-expanded="false" aria-controls="reading-line-panel" title="Reading line settings">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <div class="reading-line-panel" id="reading-line-panel" hidden>
+                        <label class="reading-line-field">
+                            <span>Position <strong id="reading-line-pos-label">50%</strong></span>
+                            <input type="range" id="reading-line-position" min="20" max="80" step="1" value="50">
+                        </label>
+                        <label class="reading-line-field">
+                            <span>Thickness <strong id="reading-line-thick-label">2px</strong></span>
+                            <input type="range" id="reading-line-thickness" min="1" max="8" step="1" value="2">
+                        </label>
+                        <div class="reading-line-field">
+                            <span>Color</span>
+                            <div class="reading-line-swatches" id="reading-line-swatches">
+                                <button type="button" class="is-active" data-color="#ffffff" aria-label="White"></button>
+                                <button type="button" data-color="#ff4d4d" aria-label="Red"></button>
+                                <button type="button" data-color="#3ddc84" aria-label="Green"></button>
+                                <button type="button" data-color="#f5c518" aria-label="Yellow"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="display-toggle" id="voice-track" aria-pressed="false" title="Voice tracking: the script follows what you say">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+                    <span>Voice</span>
+                </button>
+                <button type="button" class="display-toggle" id="fullscreen-display" aria-pressed="false" title="Fullscreen on the display">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                    <span>Fullscreen</span>
+                </button>
+            </div>
+            
+            <div class="timer-info">
+                <div class="timer-display">
+                    <div class="timer-item">
+                        <label>Remaining:</label>
+                        <span id="segment-timer">10:00</span>
+                    </div>
+                    <div class="timer-item">
+                        <label>Elapsed:</label>
+                        <span id="elapsed-timer">00:00</span>
+                    </div>
+                </div>
+            </div>
+            </div>
+            <p class="hotkey-hint">Space play/pause · ↑↓ speed · ←→ seek · R reset</p>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <script src="js/voice-track.js"></script>
+    <script src="js/speed-control.js"></script>
+    <script src="js/editor-toolbar.js"></script>
+    <script src="js/controller.js"></script>
+</body>
+</html>

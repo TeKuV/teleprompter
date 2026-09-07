@@ -1,0 +1,39 @@
+{
+  "name": "open-teleprompter",
+  "version": "1.0.0",
+  "description": "Open Teleprompter - A web-based teleprompter application with controller and display separation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node test/voice-match.test.js"
+  },
+  "keywords": [
+    "teleprompter",
+    "presentation",
+    "websocket",
+    "controller",
+    "display",
+    "streaming",
+    "broadcast",
+    "video-production",
+    "live-streaming",
+    "eyevinn"
+  ],
+  "author": "Eyevinn Technology AB",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/Eyevinn/open-teleprompter#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Eyevinn/open-teleprompter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Eyevinn/open-teleprompter/issues"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

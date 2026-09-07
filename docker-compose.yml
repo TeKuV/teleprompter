@@ -1,0 +1,12 @@
+services:
+  teleprompter:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    # Host files overlay /app. Refresh the browser after editing.
+    # Restart the container only if server.js changes.

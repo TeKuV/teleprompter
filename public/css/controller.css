@@ -1,0 +1,805 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    max-height: 100%;
+    overflow: clip;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: #f5f5f5;
+    color: #333;
+}
+
+.controller-container {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: clip;
+    overscroll-behavior: none;
+}
+
+.controller-header {
+    background: #2c3e50;
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    flex-shrink: 0;
+}
+
+.controller-header h1 {
+    font-size: 24px;
+    font-weight: 300;
+}
+
+.connection-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-indicator {
+    font-size: 16px;
+}
+
+.status-indicator.connected {
+    color: #27ae60;
+}
+
+.status-indicator.disconnected {
+    color: #e74c3c;
+}
+
+.status-indicator.connecting {
+    color: #f39c12;
+}
+
+.display-url {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+/* An author display rule beats the browser's own [hidden], so hiding has to be said
+   again here - without it the phone remote row shows an empty dash when there is no
+   address to give. */
+.display-url[hidden] {
+    display: none;
+}
+
+.display-url label {
+    opacity: 0.8;
+}
+
+.display-url button {
+    padding: 4px 12px;
+    background: #34495e;
+    border: 1px solid #5a6c7d;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.display-url button:hover {
+    background: #4a5f7a;
+}
+
+.controller-content {
+    flex: 1 1 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(380px, 480px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px 20px;
+    overflow: clip;
+}
+
+.controls-section {
+    display: flex;
+    flex-direction: column;
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    min-height: 0;
+    overflow: clip;
+}
+
+.live-preview-group {
+    flex-shrink: 0;
+    margin-bottom: 16px;
+}
+
+.controls-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.control-group {
+    margin-bottom: 18px;
+}
+
+.control-group:last-child {
+    margin-bottom: 0;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.control-group input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    border: 2px dashed #bdc3c7;
+    border-radius: 6px;
+    background: #f8f9fa;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.control-group input[type="file"]:hover {
+    border-color: #3498db;
+    background: #ebf3fd;
+}
+
+.control-group input[type="range"] {
+    width: 70%;
+    margin-right: 10px;
+}
+
+.control-group input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.control-group button:not(.display-toggle):not(.speed-preset):not(.editor-format-btn):not(.editor-format-settings) {
+    padding: 8px 16px;
+    background: #3498db;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+}
+
+.control-group button:not(.display-toggle):not(.speed-preset):not(.editor-format-btn):not(.editor-format-settings):hover {
+    background: #2980b9;
+}
+
+.file-options {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.format-btn {
+    background: #e67e22 !important;
+    color: white;
+}
+
+.format-btn:hover {
+    background: #d35400 !important;
+}
+
+.formatting-options {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #e67e22;
+}
+
+.format-details {
+    margin-top: 10px;
+}
+
+.format-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #2c3e50;
+    padding: 5px 0;
+}
+
+.format-details summary:hover {
+    color: #e67e22;
+}
+
+.format-checkboxes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+    padding-left: 15px;
+}
+
+.format-checkboxes .checkbox-label {
+    font-size: 13px;
+    color: #555;
+}
+
+@media (max-width: 768px) {
+    .format-checkboxes {
+        grid-template-columns: 1fr;
+    }
+    
+    .file-options {
+        flex-direction: column;
+    }
+}
+
+.time-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.time-input {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.time-input input {
+    width: 60px;
+    padding: 8px 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.time-input label {
+    font-size: 12px;
+    color: #666;
+    margin: 0;
+}
+
+.time-separator {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0 4px;
+}
+
+.scheduled-time-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.scheduled-time-group input[type="datetime-local"] {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.schedule-info {
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal !important;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+.duration-info {
+    margin-top: 12px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 13px;
+    border-left: 4px solid #3498db;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.duration-diff {
+    font-weight: bold;
+    border-top: 1px solid #ddd;
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+.duration-diff.positive {
+    color: #27ae60;
+}
+
+.duration-diff.negative {
+    color: #e74c3c;
+}
+
+.duration-diff.neutral {
+    color: #f39c12;
+}
+
+.text-preview {
+    background: #111;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: visible;
+}
+
+.text-preview h3 {
+    padding: 0;
+    color: #f2f2f2;
+    font-weight: 600;
+}
+
+.preview-area {
+    flex: 1;
+    padding: 0;
+    overflow: auto;
+}
+
+#text-preview {
+    min-height: 0;
+    height: 100%;
+    border: 2px dashed #ddd;
+    border-radius: 6px;
+    padding: 20px;
+    font-size: 16px;
+    line-height: 1.6;
+    outline: none;
+    background: #fafafa;
+    cursor: text;
+}
+
+#text-preview:focus {
+    border-color: #3498db;
+    background: white;
+}
+
+#text-preview p {
+    margin-bottom: 16px;
+}
+
+.control-panel {
+    flex-shrink: 0;
+    z-index: 40;
+    background: white;
+    border-top: 1px solid #ddd;
+    padding: 10px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.control-panel-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 16px;
+}
+
+.control-panel-main .display-toggles {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+}
+
+.script-progress {
+    --progress: 0%;
+    height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.script-progress input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    margin: 0;
+    border-radius: 999px;
+    background: linear-gradient(
+        to right,
+        var(--active-bg, #fff) var(--progress),
+        var(--border-strong, #3a3a3a) var(--progress)
+    );
+    outline: none;
+    cursor: pointer;
+}
+
+.script-progress input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    border: 0;
+    background: transparent;
+}
+
+.script-progress input[type="range"]::-moz-range-track {
+    height: 6px;
+    border: 0;
+    background: transparent;
+}
+
+.script-progress input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    /* WebKit hangs the thumb off the top of a track that has an explicit height:
+       pull it back by (track - thumb) / 2. Firefox centres it on its own. */
+    margin-top: -4px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--active-bg, #fff);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--active-bg, #fff) 22%, transparent);
+    cursor: grab;
+}
+
+.script-progress input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--active-bg, #fff);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--active-bg, #fff) 22%, transparent);
+    cursor: grab;
+}
+
+.script-progress input[type="range"]:active::-webkit-slider-thumb,
+.script-progress input[type="range"]:active::-moz-range-thumb {
+    cursor: grabbing;
+}
+
+.script-progress input[type="range"]:focus-visible {
+    outline: 2px solid var(--text-muted, #8d8d8d);
+    outline-offset: 3px;
+}
+
+.playback-controls {
+    display: flex;
+    gap: 15px;
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    min-width: 100px;
+    justify-content: center;
+}
+
+.control-btn .btn-icon {
+    font-size: 18px;
+}
+
+.control-btn.start {
+    background: #27ae60;
+    color: white;
+}
+
+.control-btn.start:hover:not(:disabled) {
+    background: #229954;
+    transform: translateY(-1px);
+}
+
+.control-btn.pause {
+    background: #f39c12;
+    color: white;
+}
+
+.control-btn.pause:hover:not(:disabled) {
+    background: #e67e22;
+    transform: translateY(-1px);
+}
+
+.hotkey-hint {
+    margin: 0;
+    color: var(--text-muted, #7f8c8d);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-align: center;
+}
+
+.control-btn.reset {
+    background: #e74c3c;
+    color: white;
+}
+
+.control-btn.reset:hover:not(:disabled) {
+    background: #c0392b;
+    transform: translateY(-1px);
+}
+
+.control-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.timer-info {
+    display: flex;
+    align-items: center;
+}
+
+.timer-display {
+    display: flex;
+    gap: 30px;
+}
+
+.timer-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.timer-item label {
+    font-size: 12px;
+    color: #7f8c8d;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.timer-item span {
+    font-size: 24px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    color: #2c3e50;
+}
+
+@media (max-height: 700px) {
+    .controller-header {
+        padding: 10px 20px;
+    }
+
+    .controller-content {
+        padding: 12px 16px;
+        gap: 12px;
+    }
+
+    .control-panel {
+        padding: 8px 16px 10px;
+    }
+}
+
+/* Narrow desktop: the toggle row no longer fits on one line next to the
+   transport, so let it wrap instead of overflowing the panel. */
+@media (max-width: 1100px) {
+    .control-panel-main {
+        flex-wrap: wrap;
+    }
+
+    .control-panel-main .display-toggles {
+        flex-basis: 100%;
+        order: 3;
+        flex-wrap: wrap;
+        justify-content: center;
+        row-gap: 8px;
+    }
+}
+
+/* Tablet and phone: the fixed three-zone app shell squeezes the content grid
+   into whatever the header and transport leave over, and its `auto` rows
+   collapse (the panes opt out of their automatic minimum size), which stacks
+   the panes on top of each other. Below 900px the page becomes an ordinary
+   scrolling document laid out with flexbox, which has no such failure mode. */
+@media (max-width: 900px) {
+    html, body {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .controller-container {
+        position: static;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
+    .controller-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 14px 16px;
+        gap: 12px;
+    }
+
+    .controller-header h1 {
+        font-size: 20px;
+    }
+
+    .connection-info {
+        gap: 10px 16px;
+        max-width: 100%;
+    }
+
+    .display-url {
+        flex-wrap: wrap;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    #display-url {
+        overflow-wrap: anywhere;
+    }
+
+    .controller-content {
+        display: flex;
+        flex-direction: column;
+        flex: none;
+        min-height: 0;
+        padding: 12px;
+        gap: 12px;
+        overflow: visible;
+    }
+
+    .controls-section,
+    .controls-scroll {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    .controls-scroll {
+        flex: none;
+    }
+
+    .live-preview-group {
+        margin-bottom: 12px;
+    }
+
+    /* Bounded, not auto: the editor scrolls inside itself, otherwise the
+       contenteditable stretches the document to the full script height. */
+    .text-preview {
+        height: 60dvh;
+        min-height: 320px;
+    }
+
+    /* Transport stays reachable without scrolling the whole document back down. */
+    .control-panel {
+        position: sticky;
+        bottom: 0;
+        padding: 8px 12px 10px;
+        gap: 8px;
+    }
+
+    .control-panel-main {
+        gap: 10px;
+    }
+
+    .control-panel-main .display-toggles {
+        order: 0;
+        flex-basis: auto;
+    }
+
+    .timer-display {
+        gap: 24px;
+    }
+
+    .timer-item span {
+        font-size: 20px;
+    }
+
+    .hotkey-hint {
+        display: none;
+    }
+}
+
+/* Short viewport (landscape phone, small handset): the toggles wrap to three
+   rows there, so a pinned transport bar would cover most of the screen. Let it
+   scroll with the document instead. */
+@media (max-width: 900px) and (max-height: 700px) {
+    .control-panel {
+        position: static;
+    }
+}
+
+@media (max-width: 560px) {
+    .control-panel-main {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .playback-controls {
+        justify-content: center;
+    }
+
+    .timer-display {
+        justify-content: center;
+    }
+
+    .display-toggles .display-toggle {
+        height: 40px;
+        padding: 0 10px;
+        font-size: 12px;
+        gap: 6px;
+    }
+
+    .display-line-settings {
+        height: 40px;
+    }
+
+    .control-btn {
+        min-width: 0;
+        flex: 1;
+        padding: 12px 12px;
+    }
+
+    .playback-controls {
+        gap: 10px;
+    }
+
+    .format-checkboxes {
+        grid-template-columns: 1fr;
+    }
+
+    .file-options {
+        flex-direction: column;
+    }
+
+    .file-options > button {
+        width: 100%;
+    }
+}
