@@ -58,7 +58,7 @@ const SpeedControl = (() => {
             btn.dataset.speed = String(value);
             btn.textContent = label(value);
             btn.setAttribute('aria-pressed', 'false');
-            btn.title = `${label(value)} · ${Math.round(BASE_WPM * value)} wpm`;
+            btn.title = `${label(value)} · ${t('speed.wpm', { n: Math.round(BASE_WPM * value) })}`;
             return btn;
         }
 
@@ -71,10 +71,20 @@ const SpeedControl = (() => {
             this.primaryRoot.addEventListener('click', pick);
         }
 
+        // Re-rendered on a language change: the preset tooltips and the wpm hint are
+        // written from here, so the translator walking the markup never sees them.
+        render() {
+            this.primaryRoot.querySelectorAll('[data-speed]').forEach((btn) => {
+                const value = Number(btn.dataset.speed);
+                btn.title = `${label(value)} · ${t('speed.wpm', { n: Math.round(BASE_WPM * value) })}`;
+            });
+            this.sync();
+        }
+
         sync() {
             this.slider.value = String(this.multiplier);
             this.display.textContent = label(this.multiplier);
-            if (this.wpmHint) this.wpmHint.textContent = `${this.wpm} wpm`;
+            if (this.wpmHint) this.wpmHint.textContent = t('speed.wpm', { n: this.wpm });
             this.syncActive();
         }
 

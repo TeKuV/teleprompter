@@ -814,3 +814,125 @@
         margin-bottom: 0;
     }
 }
+
+.settings-dialog {
+    /* The global `* { margin: 0 }` reset kills the margin:auto a native dialog centres
+       itself with, so the centring has to be said again here. */
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(420px, calc(100vw - 32px));
+    height: fit-content;
+    max-height: calc(100vh - 32px);
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--bg-elevated);
+    color: var(--text-strong);
+}
+
+.settings-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px;
+}
+
+.settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.settings-form h2 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.settings-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.settings-close svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.settings-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-strong);
+}
+
+.settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.settings-field input,
+.settings-field select {
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-base, var(--bg-elevated));
+    color: var(--text-strong);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.settings-field small {
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.settings-actions button {
+    height: 38px;
+    padding: 0 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.settings-actions button:hover {
+    background: var(--bg-hover);
+    color: var(--text-strong);
+}
+
+.settings-actions .settings-save {
+    background: var(--active-bg);
+    border-color: var(--active-bg);
+    color: var(--active-fg);
+}

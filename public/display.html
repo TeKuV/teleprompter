@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teleprompter Display</title>
+    <script src="js/i18n.js"></script>
     <link rel="stylesheet" href="css/display.css">
 </head>
 <body>
@@ -17,7 +18,7 @@
         <div class="text-area">
             <div class="reading-line" id="reading-line" hidden></div>
             <div class="scheduled-countdown" id="scheduled-countdown">
-                <div class="countdown-label">Scheduled Start In:</div>
+                <div class="countdown-label" data-i18n="display.scheduledIn">Scheduled Start In:</div>
                 <div class="countdown-time" id="countdown-time">00:00:00</div>
                 <div class="countdown-target" id="countdown-target">Starting at: --:--:--</div>
             </div>
@@ -29,21 +30,21 @@
                 <span class="next-cue-label" id="next-cue-label"></span>
             </div>
             <div id="prompter-text" class="prompter-rich">
-                <p>Waiting for controller connection...</p>
-                <p>Open the controller page to load your manuscript and begin prompting.</p>
+                <p data-i18n="display.waiting">Waiting for controller connection...</p>
+                <p data-i18n="display.waitingHint">Open the controller page to load your manuscript and begin prompting.</p>
             </div>
         </div>
         
-        <div class="fullscreen-hint" id="fullscreen-hint">Press any key for fullscreen</div>
+        <div class="fullscreen-hint" id="fullscreen-hint" data-i18n="display.fullscreenHint">Press any key for fullscreen</div>
         
         <div class="on-air-indicator" id="on-air-indicator">
             <div class="on-air-light"></div>
-            <span class="on-air-text">ON AIR</span>
+            <span class="on-air-text" data-i18n="display.onAir">ON AIR</span>
         </div>
         
         <div class="connection-status" id="connection-status">
             <span class="status-indicator disconnected">●</span>
-            <span class="status-text">Disconnected</span>
+            <span class="status-text" data-i18n="status.disconnected">Disconnected</span>
         </div>
     </div>
     

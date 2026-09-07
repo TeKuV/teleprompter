@@ -62,7 +62,7 @@ class TeleprompterDisplay {
     
     connectWebSocket() {
         try {
-            this.updateConnectionStatus('connecting', 'Connecting...');
+            this.updateConnectionStatus('connecting', t('status.connecting'));
             // Construct WebSocket URL dynamically based on current location
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsPort = window.location.port || (window.location.protocol === 'https:' ? 443 : 80);
@@ -72,7 +72,7 @@ class TeleprompterDisplay {
             this.ws.onopen = () => {
                 console.log('Connected to WebSocket server');
                 this.offline = false;
-                this.updateConnectionStatus('connected', 'Connected');
+                this.updateConnectionStatus('connected', t('status.connected'));
                 this.reconnectAttempts = 0;
                 
                 // Register as display
@@ -172,6 +172,10 @@ class TeleprompterDisplay {
                 this.syncState(data.state);
                 break;
                 
+            case 'settings':
+                applyLanguage(data.uiLang);
+                break;
+
             case 'setText':
                 this.setPrompterText(data.content, data.styles);
                 break;
@@ -258,6 +262,7 @@ class TeleprompterDisplay {
             this.setPrompterText(state.text, state.textStyles);
         }
         
+        if (state.settings) applyLanguage(state.settings.uiLang);
         this.applySpeed(state.speed, state.speedMultiplier);
         this.applyFontSize(state.fontSize);
         if (Number.isFinite(state.segmentLength)) {
@@ -406,8 +411,18 @@ class TeleprompterDisplay {
     }
     
     autoStart() {
-        // Simulate receiving a start message from the server
-        this.start(Date.now(), 0);
+        if (this.isPlaying) return;
+        const startTime = Date.now();
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'start',
+                startTime,
+                pausedTime: 0,
+                segmentDuration: this.segmentDuration
+            }));
+            return;
+        }
+        this.start(startTime, 0);
     }
     
     applySegmentDuration(ms) {
@@ -417,6 +432,7 @@ class TeleprompterDisplay {
     }
 
     start(startTime, pausedTime, segmentDuration) {
+        this.clearScheduledStart();
         this.isPlaying = true;
         this.isPaused = false;
         this.startTime = startTime || Date.now();
@@ -771,7 +787,7 @@ class TeleprompterDisplay {
         const eta = pxPerSecond > 0 ? (this.cueTarget(next) - this.currentPosition) / pxPerSecond : 0;
         const sec = Math.max(1, Math.round(eta));
         this.nextCue.hidden = false;
-        this.nextCueIn.textContent = `in ${sec}s:`;
+        this.nextCueIn.textContent = t('display.cueIn', { s: sec });
         this.nextCueLabel.textContent = this.cueLabel(next);
     }
 

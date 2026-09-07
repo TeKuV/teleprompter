@@ -6,6 +6,28 @@ const os = require('os');
 
 const PORT = process.env.PORT || 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const SETTINGS_FILE = path.join(__dirname, 'settings.json');
+// lang is what the reader says, uiLang is what the operator reads: two settings,
+// because a French bulletin is routinely run from an English interface.
+const DEFAULT_SETTINGS = { name: 'Africa24TV Prompter', lang: '', uiLang: 'en' };
+
+// A station name has to outlive a restart, and the show state deliberately does not, so
+// the settings are the one thing kept on disk.
+function loadSettings() {
+    try {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) };
+    } catch {
+        return { ...DEFAULT_SETTINGS };
+    }
+}
+
+function saveSettings(settings) {
+    try {
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+    } catch (error) {
+        console.error('Could not save settings:', error.message);
+    }
+}
 
 // The addresses a phone on the same wifi can reach this machine on.
 function lanAddresses() {
@@ -114,7 +136,8 @@ let currentState = {
     hideTimer: false,
     onAir: false,
     scheduledStartTime: null,
-    readingLine: { enabled: false, position: 50, color: '#ffffff', thickness: 2 }
+    readingLine: { enabled: false, position: 50, color: '#ffffff', thickness: 2 },
+    settings: loadSettings()
 };
 
 wss.on('connection', (ws, req) => {
@@ -191,6 +214,20 @@ wss.on('connection', (ws, req) => {
                     broadcastToDisplays({ type: 'setReadingLine', ...currentState.readingLine });
                     break;
                     
+                case 'setSettings':
+                    currentState.settings = {
+                        name: String(data.name ?? currentState.settings.name).slice(0, 60).trim()
+                            || DEFAULT_SETTINGS.name,
+                        lang: String(data.lang ?? currentState.settings.lang).slice(0, 15),
+                        uiLang: String(data.uiLang ?? currentState.settings.uiLang).slice(0, 5)
+                    };
+                    saveSettings(currentState.settings);
+                    // The name is on every controller and the interface language is on
+                    // every screen, so both ends hear about it.
+                    broadcastToControllers({ type: 'settings', ...currentState.settings });
+                    broadcastToDisplays({ type: 'settings', ...currentState.settings });
+                    break;
+
                 case 'setScheduledStart':
                     currentState.scheduledStartTime = data.scheduledTime;
                     broadcastToDisplays({ type: 'setScheduledStart', scheduledTime: data.scheduledTime });
@@ -199,6 +236,7 @@ wss.on('connection', (ws, req) => {
                 case 'clearScheduledStart':
                     currentState.scheduledStartTime = null;
                     broadcastToDisplays({ type: 'clearScheduledStart' });
+                    broadcastToControllers({ type: 'clearScheduledStart' });
                     break;
                     
                 case 'start':
@@ -212,6 +250,12 @@ wss.on('connection', (ws, req) => {
                         currentState.segmentLength = Math.max(1, Math.round(data.segmentDuration / 1000));
                     }
                     broadcastToDisplays({
+                        type: 'start',
+                        startTime: currentState.startTime,
+                        pausedTime: currentState.pausedTime,
+                        segmentDuration: data.segmentDuration || currentState.segmentLength * 1000
+                    });
+                    broadcastToControllers({
                         type: 'start',
                         startTime: currentState.startTime,
                         pausedTime: currentState.pausedTime,
@@ -233,6 +277,11 @@ wss.on('connection', (ws, req) => {
                         pausedTime: currentState.pausedTime,
                         segmentDuration: data.segmentDuration || currentState.segmentLength * 1000
                     });
+                    broadcastToControllers({
+                        type: 'pause',
+                        pausedTime: currentState.pausedTime,
+                        segmentDuration: data.segmentDuration || currentState.segmentLength * 1000
+                    });
                     break;
                     
                 case 'reset':
@@ -243,6 +292,7 @@ wss.on('connection', (ws, req) => {
                     currentState.startTime = null;
                     currentState.pausedTime = 0;
                     broadcastToDisplays({ type: 'reset' });
+                    broadcastToControllers({ type: 'reset' });
                     break;
                     
                 case 'setFullscreen':

@@ -1,4 +1,5 @@
 const SCRIPT_STORAGE_KEY = 'teleprompter-script';
+const SETTINGS_STORAGE_KEY = 'teleprompter-settings';
 const PREROLL_SECONDS = 3;
 // Below this, the voice is ahead or behind by less than a line and the normal scroll
 // already covers it; correcting anyway would jog the display on every spoken word.
@@ -26,6 +27,10 @@ class TeleprompterController {
         this.displayStateAt = 0;
         this.seekRaf = 0;
         this.prerollInterval = null;
+        this.settings = { name: document.title, lang: '', uiLang: resolveUiLang() };
+        this.restoreSavedSettings();
+        this.scheduledAt = null;
+        this.scheduleWatch = null;
         
         this.initializeElements();
         this.restoreSavedScript();
@@ -50,6 +55,14 @@ class TeleprompterController {
         this.onAirModeCheckbox = document.getElementById('on-air-mode');
         this.fullscreenBtn = document.getElementById('fullscreen-display');
         this.voiceBtn = document.getElementById('voice-track');
+        this.settingsBtn = document.getElementById('settings-open');
+        this.settingsDialog = document.getElementById('settings-dialog');
+        this.settingsForm = document.getElementById('settings-form');
+        this.settingsName = document.getElementById('settings-name');
+        this.settingsLang = document.getElementById('settings-lang');
+        this.settingsUiLang = document.getElementById('settings-ui-lang');
+        this.settingsCancel = document.getElementById('settings-cancel');
+        this.settingsClose = document.getElementById('settings-close');
         this.previewBox = document.getElementById('live-preview');
         this.previewFrame = document.getElementById('preview-frame');
         this.previewStage = document.getElementById('preview-stage');
@@ -104,6 +117,7 @@ class TeleprompterController {
         this.hideTimerCheckbox.addEventListener('change', (e) => this.updateHideTimer(e.target.checked));
         this.onAirModeCheckbox.addEventListener('change', (e) => this.updateOnAir(e.target.checked));
         this.fullscreenBtn.addEventListener('click', () => this.toggleDisplayFullscreen());
+        this.bindSettings();
         this.bindReadingLine();
         this.bindFormatControl();
         this.previewMirrorBtn?.addEventListener('click', () => this.togglePreviewMirror());
@@ -185,7 +199,7 @@ class TeleprompterController {
 
     updatePreviewBadge() {
         if (!this.previewBadge) return;
-        this.previewBadge.textContent = this.isPlaying ? 'SCROLL' : 'PAUSED';
+        this.previewBadge.textContent = t(this.isPlaying ? 'preview.scroll' : 'preview.paused');
         this.previewBadge.classList.toggle('is-live', this.isPlaying);
     }
 
@@ -203,7 +217,7 @@ class TeleprompterController {
     
     connectWebSocket() {
         try {
-            this.updateConnectionStatus('connecting', 'Connecting...');
+            this.updateConnectionStatus('connecting', t('status.connecting'));
             // Construct WebSocket URL dynamically based on current location
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsPort = window.location.port || (window.location.protocol === 'https:' ? 443 : 80);
@@ -212,7 +226,7 @@ class TeleprompterController {
             
             this.ws.onopen = () => {
                 console.log('Connected to WebSocket server');
-                this.updateConnectionStatus('connected', 'Connected');
+                this.updateConnectionStatus('connected', t('status.connected'));
                 this.reconnectAttempts = 0;
                 
                 // Register as controller. The server answers with stateSync; whether we
@@ -234,18 +248,18 @@ class TeleprompterController {
             
             this.ws.onclose = () => {
                 console.log('WebSocket connection closed');
-                this.updateConnectionStatus('disconnected', 'Disconnected');
+                this.updateConnectionStatus('disconnected', t('status.disconnected'));
                 this.scheduleReconnect();
             };
             
             this.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                this.updateConnectionStatus('disconnected', 'Connection Error');
+                this.updateConnectionStatus('disconnected', t('status.error'));
             };
             
         } catch (error) {
             console.error('Failed to connect to WebSocket:', error);
-            this.updateConnectionStatus('disconnected', 'Failed to Connect');
+            this.updateConnectionStatus('disconnected', t('status.failed'));
             this.scheduleReconnect();
         }
     }
@@ -255,13 +269,13 @@ class TeleprompterController {
             this.reconnectAttempts++;
             const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
             
-            this.updateConnectionStatus('connecting', `Reconnecting in ${Math.ceil(delay / 1000)}s...`);
+            this.updateConnectionStatus('connecting', t('status.reconnecting', { s: Math.ceil(delay / 1000) }));
             
             setTimeout(() => {
                 this.connectWebSocket();
             }, delay);
         } else {
-            this.updateConnectionStatus('disconnected', 'Max reconnect attempts reached');
+            this.updateConnectionStatus('disconnected', t('status.gaveUp'));
         }
     }
     
@@ -287,6 +301,7 @@ class TeleprompterController {
             this.speedMultiplier = state.speedMultiplier || state.speed / 150;
             this.speedWidget?.setMultiplier(this.speedMultiplier, { silent: true });
         }
+        if (state.settings) this.applySettings(state.settings);
         this.mirrorModeCheckbox.checked = !!state.mirrorMode;
         this.hideTimerCheckbox.checked = !!state.hideTimer;
         this.onAirModeCheckbox.checked = !!state.onAir;
@@ -294,6 +309,7 @@ class TeleprompterController {
         this.editorToolbar?.syncBookmarkCount();
         this.updateDurationCalculations();
         this.adoptPlayback(state);
+        this.armScheduledStart(state.scheduledStartTime);
     }
 
     // Playback lives on the server and the display. After a refresh the page is idle
@@ -328,6 +344,15 @@ class TeleprompterController {
         }
     }
 
+    restoreSavedSettings() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || 'null');
+            if (saved?.name) this.applySettings(saved);
+        } catch {
+            /* private mode, or nothing cached yet */
+        }
+    }
+
     restoreSavedScript() {
         try {
             const saved = localStorage.getItem(SCRIPT_STORAGE_KEY);
@@ -356,9 +381,70 @@ class TeleprompterController {
         }
     }
     
+    bindSettings() {
+        if (!this.settingsBtn || !this.settingsDialog) return;
+        this.settingsBtn.addEventListener('click', () => {
+            this.pinShell();
+            this.settingsName.value = this.settings.name;
+            this.settingsLang.value = this.settings.lang;
+            this.settingsUiLang.value = this.settings.uiLang;
+            this.settingsDialog.showModal();
+        });
+        // Both dismiss without saving, like the Escape key the dialog already handles.
+        this.settingsCancel.addEventListener('click', () => this.settingsDialog.close());
+        this.settingsClose?.addEventListener('click', () => this.settingsDialog.close());
+        this.settingsForm.addEventListener('submit', () => {
+            const next = {
+                name: this.settingsName.value.trim() || this.settings.name,
+                lang: this.settingsLang.value,
+                uiLang: this.settingsUiLang.value
+            };
+            this.applySettings(next);
+            this.sendMessage({ type: 'setSettings', ...next });
+        });
+    }
+
+    applySettings({ name, lang, uiLang }) {
+        this.settings = { name, lang, uiLang: resolveUiLang(uiLang) };
+        applyLanguage(this.settings.uiLang);
+        // The recogniser follows the reader, so it takes the script language, never the
+        // interface one: a French bulletin read from an English interface is normal.
+        this.voiceTracker?.setLanguage(lang);
+        this.retranslate();
+        // Cached so the header carries the right name from the first paint; the server
+        // still owns the value and overwrites this the moment its state arrives.
+        try {
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(this.settings));
+        } catch {
+            /* private mode */
+        }
+        document.querySelector('.controller-header h1').textContent = name;
+        document.title = name;
+    }
+
+    // Labels rendered from JS are outside the markup the translator walks, so they are
+    // re-rendered here whenever the language changes.
+    retranslate() {
+        this.syncPlayButton();
+        this.updatePreviewBadge();
+        this.speedWidget?.render?.();
+        if (this.lastConnectionInfo) this.updateConnectionInfo(this.lastConnectionInfo);
+        if (this.voiceBtn?.disabled) this.voiceBtn.title = t('playback.voiceUnsupported');
+        if (!this.scheduledStartInput?.value && this.scheduleInfo) {
+            this.scheduleInfo.innerHTML = `<span>${t('schedule.none')}</span>`;
+        }
+    }
+
     handleMessage(data) {
         switch (data.type) {
+            case 'settings':
+                this.applySettings(data);
+                break;
+
             case 'stateSync':
+                // The settings belong to the prompter, not to the show, so they apply
+                // even when there is no script loaded to adopt.
+                if (data.state?.settings) this.applySettings(data.state.settings);
                 if (data.state && (data.state.text || data.state.isPlaying || data.state.isPaused)) {
                     this.adoptState(data.state);
                 } else {
@@ -366,8 +452,23 @@ class TeleprompterController {
                 }
                 break;
                 
+            case 'start':
+                this.applyRemoteStart(data);
+                break;
+
+            case 'pause':
+                this.applyRemotePause(data);
+                break;
+
+            case 'reset':
+                this.applyRemoteReset();
+                break;
+
+            case 'clearScheduledStart':
+                this.disarmScheduledStart(true);
+                break;
+
             case 'pong':
-                // Heartbeat response
                 break;
                 
             case 'connectionCount':
@@ -493,12 +594,17 @@ class TeleprompterController {
     }
 
     updateConnectionInfo(data) {
+        this.lastConnectionInfo = data;
         // Update connection status display with count info
         const totalConnections = data.controllers + data.displays;
         // A silently ignored display would be its own kind of confusing: the bar behaves
         // while that window still crawls, so name it here where the operator looks.
-        const stale = data.stale ? `, ${data.stale} outdated - reload` : '';
-        const displayText = `Connected (${data.displays} display${data.displays !== 1 ? 's' : ''}${stale})`;
+        const stale = data.stale ? t('status.stale', { n: data.stale }) : '';
+        const displayText = t('status.displays', {
+            n: data.displays,
+            s: data.displays !== 1 ? 's' : '',
+            stale
+        });
         this.updateConnectionStatus('connected', displayText);
         this.displayCount = data.displays;
         if (!this.displayCount) {
@@ -520,7 +626,7 @@ class TeleprompterController {
                        file.name.toLowerCase().endsWith('.docx')) {
                 text = await this.readWordDocument(file);
             } else if (file.type.includes('word') || file.name.toLowerCase().endsWith('.doc')) {
-                alert('Legacy .doc files are not supported. Please use .docx format or convert to text.');
+                alert(t('upload.legacyDoc'));
                 return;
             } else {
                 text = await this.readTextFile(file);
@@ -528,7 +634,7 @@ class TeleprompterController {
             
             this.setPrompterText(text);
         } catch (error) {
-            alert('Error reading file: ' + error.message);
+            alert(t('upload.readError') + error.message);
         }
     }
     
@@ -683,12 +789,13 @@ class TeleprompterController {
             const now = new Date();
             
             if (scheduledDate <= now) {
-                alert('Scheduled time must be in the future');
+                alert(t('schedule.past'));
                 this.scheduledStartInput.value = '';
                 return;
             }
             
-            this.scheduleInfo.innerHTML = `<span>Scheduled for: ${scheduledDate.toLocaleString()}</span>`;
+            this.scheduleInfo.innerHTML = `<span>${t('schedule.set', { when: scheduledDate.toLocaleString() })}</span>`;
+            this.armScheduledStart(scheduledDate.getTime());
             this.sendMessage({ 
                 type: 'setScheduledStart', 
                 scheduledTime: scheduledDate.getTime() 
@@ -699,9 +806,95 @@ class TeleprompterController {
     }
     
     clearScheduledStart() {
-        this.scheduledStartInput.value = '';
-        this.scheduleInfo.innerHTML = '<span>No scheduled start time set</span>';
+        this.disarmScheduledStart(true);
         this.sendMessage({ type: 'clearScheduledStart' });
+    }
+
+    armScheduledStart(timestamp) {
+        const at = Number(timestamp);
+        if (!Number.isFinite(at) || at <= Date.now()) {
+            this.disarmScheduledStart(false);
+            return;
+        }
+        this.scheduledAt = at;
+        if (this.scheduledStartInput && !this.scheduledStartInput.value) {
+            this.scheduledStartInput.value = this.toLocalDateTimeValue(at);
+        }
+        this.tickScheduledStart();
+    }
+
+    disarmScheduledStart(clearInput) {
+        this.scheduledAt = null;
+        if (this.scheduleWatch) {
+            clearTimeout(this.scheduleWatch);
+            this.scheduleWatch = null;
+        }
+        if (!clearInput) return;
+        if (this.scheduledStartInput) this.scheduledStartInput.value = '';
+        if (this.scheduleInfo) this.scheduleInfo.innerHTML = `<span>${t('schedule.none')}</span>`;
+    }
+
+    tickScheduledStart() {
+        if (this.scheduleWatch) {
+            clearTimeout(this.scheduleWatch);
+            this.scheduleWatch = null;
+        }
+        if (!this.scheduledAt) return;
+        const left = this.scheduledAt - Date.now();
+        if (left <= 0) {
+            this.onScheduledGo();
+            return;
+        }
+        this.scheduleWatch = setTimeout(() => this.tickScheduledStart(), Math.min(left, 250));
+    }
+
+    onScheduledGo() {
+        this.disarmScheduledStart(true);
+        if (this.isPlaying) {
+            this.syncPlayButton();
+            return;
+        }
+        this.start(true);
+    }
+
+    toLocalDateTimeValue(ms) {
+        const d = new Date(ms);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    applyRemoteStart(data) {
+        this.disarmScheduledStart(true);
+        this.cancelPreroll();
+        this.isPlaying = true;
+        this.isPaused = false;
+        this.startTime = Number.isFinite(data.startTime) ? data.startTime : Date.now();
+        this.pausedTime = Number.isFinite(data.pausedTime) ? data.pausedTime : 0;
+        if (this.onAirModeCheckbox) this.onAirModeCheckbox.checked = true;
+        this.syncPlayButton();
+        this.startTimer();
+    }
+
+    applyRemotePause(data) {
+        this.isPlaying = false;
+        this.isPaused = true;
+        this.pausedTime = Number.isFinite(data.pausedTime) ? data.pausedTime : this.pausedTime;
+        this.syncPlayButton();
+        this.stopTimer();
+        this.updateDisplay();
+    }
+
+    applyRemoteReset() {
+        this.cancelPreroll();
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.startTime = null;
+        this.pausedTime = 0;
+        this.displayRatio = 0;
+        this.displayRemaining = null;
+        this.syncPlayButton();
+        this.stopTimer();
+        this.updateDisplay();
     }
     
     togglePlayback() {
@@ -740,18 +933,19 @@ class TeleprompterController {
 
     showPrerollOnButton(left) {
         if (this.playIcon) this.playIcon.textContent = String(left);
-        if (this.playLabel) this.playLabel.textContent = 'Starting';
+        if (this.playLabel) this.playLabel.textContent = t('playback.starting');
     }
 
     syncPlayButton() {
-        if (!this.playBtn) return;
+        if (!this.playBtn || this.prerollInterval) return;
         const playing = this.isPlaying;
+        const idle = t(this.isAtStart() ? 'playback.start' : 'playback.continue');
         this.playBtn.classList.toggle('start', !playing);
         this.playBtn.classList.toggle('pause', playing);
         this.playBtn.setAttribute('aria-pressed', String(playing));
-        this.playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Start');
+        this.playBtn.setAttribute('aria-label', playing ? t('playback.pause') : idle);
         if (this.playIcon) this.playIcon.textContent = playing ? '⏸' : '▶';
-        if (this.playLabel) this.playLabel.textContent = playing ? 'Pause' : 'Start';
+        if (this.playLabel) this.playLabel.textContent = playing ? t('playback.pause') : idle;
         this.updatePreviewBadge();
     }
 
@@ -777,6 +971,13 @@ class TeleprompterController {
         this.startTimer();
     }
     
+    isAtStart() {
+        if (this.isAtEnd()) return false;
+        if ((this.displayRatio || 0) > 0.015) return false;
+        if ((this.pausedTime || 0) > 400) return false;
+        return true;
+    }
+
     isAtEnd() {
         if (this.displayRemaining != null && this.displayRemaining <= 250) return true;
         return this.displayRatio != null && this.displayRatio >= 0.99;
@@ -869,7 +1070,7 @@ class TeleprompterController {
         this.updateCountdownDisplay(remaining);
         this.updateElapsedDisplay(elapsed);
         this.updateProgressBar(this.progressFromClocks(elapsed, remaining));
-        this.updatePreviewBadge();
+        this.syncPlayButton();
         
         if (remaining <= 0 && this.isPlaying && this.displayRemaining != null && this.displayStateIsFresh()) {
             this.pause();
@@ -937,7 +1138,7 @@ class TeleprompterController {
         if (!this.voiceBtn) return;
         if (!VoiceTracker.isSupported()) {
             this.voiceBtn.disabled = true;
-            this.voiceBtn.title = 'Voice tracking needs Chrome or Edge';
+            this.voiceBtn.title = t('playback.voiceUnsupported');
             return;
         }
         this.voiceTracker = new VoiceTracker({
@@ -945,10 +1146,11 @@ class TeleprompterController {
             onState: (listening, message) => {
                 this.voiceBtn.setAttribute('aria-pressed', String(listening));
                 this.voiceBtn.classList.toggle('is-listening', listening);
-                if (message) alert(message);
+                if (message) alert(t(message.key, message.vars));
             }
         });
         this.voiceTracker.setScript(this.getEditorPlainText());
+        this.voiceTracker.setLanguage(this.settings.lang);
         this.voiceBtn.addEventListener('click', () => this.toggleVoiceTracking());
     }
 
@@ -997,6 +1199,7 @@ class TeleprompterController {
         this.updateCountdownDisplay(this.displayRemaining);
         this.updateElapsedDisplay(elapsed);
         this.updateProgressBar(safe);
+        this.syncPlayButton();
     }
     
     updateDurationCalculations() {
@@ -1074,7 +1277,7 @@ class TeleprompterController {
 
         this.lanControllerUrl = `${window.location.protocol}//${host}/controller.html`;
         this.lanUrl.textContent = this.lanControllerUrl;
-        if (others.length > 1) this.lanUrl.title = `This machine is also on: ${others.join(', ')}`;
+        if (others.length > 1) this.lanUrl.title = t('header.otherAddresses', { list: others.join(', ') });
         this.lanUrlRow.hidden = false;
     }
 
@@ -1085,10 +1288,9 @@ class TeleprompterController {
 
     copyToClipboard(text, button) {
         const done = () => {
-            const label = button.textContent;
-            button.textContent = 'Copied!';
+            button.textContent = t('header.copied');
             setTimeout(() => {
-                button.textContent = label;
+                button.textContent = t('header.copy');
             }, 2000);
         };
         navigator.clipboard.writeText(text).then(done).catch(() => {
@@ -1110,7 +1312,7 @@ class TeleprompterController {
     formatTextForTeleprompter() {
         const currentText = this.getEditorPlainText();
         if (!currentText.trim()) {
-            alert('No text to format. Please upload a manuscript or enter text first.');
+            alert(t('upload.noText'));
             return;
         }
         

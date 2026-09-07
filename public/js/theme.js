@@ -17,9 +17,11 @@ const ThemeControl = (() => {
         const dark = theme === 'dark';
         document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
             btn.setAttribute('aria-pressed', String(dark));
-            btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+            // t() only exists where i18n.js is loaded; the display does without it.
+            const say = typeof t === 'function' ? t : (key) => key.split('.').pop();
+            btn.title = say(dark ? 'theme.toLight' : 'theme.toDark');
             const label = btn.querySelector('[data-theme-label]');
-            if (label) label.textContent = dark ? 'Dark' : 'Light';
+            if (label) label.textContent = say(dark ? 'theme.dark' : 'theme.light');
         });
     };
 
@@ -50,6 +52,11 @@ const ThemeControl = (() => {
 
     document.addEventListener('click', (e) => {
         if (e.target.closest('[data-theme-toggle]')) toggle();
+    });
+
+    // The toggle writes its own label, so it has to redraw it when the language changes.
+    document.addEventListener('appLanguageChange', () => {
+        syncButtons(document.documentElement.dataset.theme);
     });
 
     return { apply, toggle };

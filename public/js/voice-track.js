@@ -65,6 +65,17 @@ class VoiceTracker {
         this.finalWords = [];
         this.active = false;
         this.recognition = null;
+        this.lang = '';
+    }
+
+    // The language of what is spoken, which is the script's, not the interface's.
+    setLanguage(lang) {
+        this.lang = lang || '';
+        if (this.recognition) this.recognition.lang = this.recognitionLang();
+    }
+
+    recognitionLang() {
+        return this.lang || navigator.language || 'en-US';
     }
 
     setScript(text) {
@@ -82,7 +93,7 @@ class VoiceTracker {
         if (this.active || !VoiceTracker.isSupported()) return;
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new Recognition();
-        recognition.lang = document.documentElement.lang || navigator.language || 'fr-FR';
+        recognition.lang = this.recognitionLang();
         recognition.continuous = true;
         recognition.interimResults = true;
 
@@ -91,8 +102,8 @@ class VoiceTracker {
             // Silence is normal and onend restarts; a refused mic is not recoverable.
             if (event.error === 'no-speech' || event.error === 'aborted') return;
             this.stop(event.error === 'not-allowed'
-                ? 'Microphone access refused'
-                : `Voice tracking error: ${event.error}`);
+                ? { key: 'playback.micRefused' }
+                : { key: 'playback.voiceError', vars: { error: event.error } });
         };
         // Recognition stops itself after a pause, so keep it alive while the button is on.
         recognition.onend = () => {
@@ -106,7 +117,7 @@ class VoiceTracker {
         this.onState(true, '');
     }
 
-    stop(message = '') {
+    stop(message = null) {
         if (!this.active && !this.recognition) return;
         this.active = false;
         try {

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/voice-match.test.js"
+    "test": "node test/voice-match.test.js && node test/i18n.test.js"
   },
   "keywords": [
     "teleprompter",
