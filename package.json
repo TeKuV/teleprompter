@@ -1,7 +1,7 @@
 {
-  "name": "open-teleprompter",
+  "name": "free Teleprompter",
   "version": "1.0.0",
-  "description": "Open Teleprompter - A web-based teleprompter application with controller and display separation",
+  "description": "free Teleprompter - A web-based teleprompter with controller and display separation, and isolated work sessions",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

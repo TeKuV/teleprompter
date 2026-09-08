@@ -11,8 +11,6 @@ RUN npm ci --only=production
 # edits are served on the next request — no image rebuild needed.
 COPY . .
 
-VOLUME ["/app"]
-
 EXPOSE 8080
 
 ENV NODE_ENV=production

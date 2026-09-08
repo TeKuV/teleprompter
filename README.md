@@ -1,14 +1,16 @@
-# Open Teleprompter
+# free Teleprompter
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Slack](http://slack.streamingtech.se/badge.svg)](http://slack.streamingtech.se)
 [![Badge OSC](https://img.shields.io/badge/Evaluate-24243B?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTIiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl8yODIxXzMxNjcyKSIvPgo8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI3IiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiLz4KPGRlZnM%2BCjxsaW5lYXJHcmFkaWVudCBpZD0icGFpbnQwX2xpbmVhcl8yODIxXzMxNjcyIiB4MT0iMTIiIHkxPSIwIiB4Mj0iMTIiIHkyPSIyNCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBzdG9wLWNvbG9yPSIjQzE4M0ZGIi8%2BCjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzREQzlGRiIvPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM%2BCjwvc3ZnPgo%3D)](https://app.osaas.io/browse/eyevinn-teleprompter)
 
-A professional open-source web-based teleprompter application with controller-display separation for presentations, video recording, and public speaking.
+A professional open-source web-based teleprompter application with controller-display separation for presentations, video recording, and public speaking. Several people can work on one server at the same time, each in their own session.
+
+free Teleprompter is based on [Open Teleprompter](https://github.com/Eyevinn/open-teleprompter) by Eyevinn Technology, which the badges and the support sections below still refer to.
 
 **✨ Available in Eyevinn Open Source Cloud** - Try Open Teleprompter instantly without installation at [app.osaas.io](https://app.osaas.io/browse/eyevinn-teleprompter)
 
-Open Teleprompter provides a complete solution for professional teleprompter needs, featuring real-time synchronization between controller and display interfaces, manuscript formatting, scheduled broadcasts, and Docker deployment support.
+free Teleprompter provides a complete solution for professional teleprompter needs, featuring real-time synchronization between controller and display interfaces, isolated work sessions, manuscript formatting, voice tracking, scheduled broadcasts, and Docker deployment support.
 
 ## Screenshots
 
@@ -30,7 +32,9 @@ The clean, distraction-free display optimized for teleprompter use:
 - **Configurable Speed**: Adjustable reading speed from 60-300 words per minute
 - **Voice Tracking**: The script follows what the presenter actually says, not just the clock
 - **3-2-1 Pre-roll**: A countdown on every display before the scroll starts
-- **Phone Remote**: The controller URL on the local network, to drive the show from a phone
+- **Phone Remote**: The controller URL on the local network, with a QR code, to drive the show from a phone
+- **Work Sessions**: Separate shows on one server, each with its own display URL
+- **Blackout**: A display that loses the controller goes black rather than show a frozen script
 - **Segment Timing**: Set custom segment lengths with countdown timer
 - **Scheduled Start**: Set future start times with countdown display
 - **Duration Calculations**: Real-time calculation of expected reading time vs. segment length
@@ -105,6 +109,55 @@ docker run -p 3000:3000 -e PORT=3000 open-teleprompter
 6. **Start Prompting**: Click Start to begin auto-scrolling text (on-air indicator activates automatically)
 7. **Control Playback**: Use Pause/Resume and Reset as needed
 
+### Work Sessions
+
+Opening the controller creates a session and puts its id in the URL. The addresses are
+short on purpose - they get typed into a phone or written on a call sheet:
+
+| | |
+|---|---|
+| Controller | `http://host:8080/a1b2c3d4` |
+| Display | `http://host:8080/d/a1b2c3d4` |
+
+Everything the controller hands you carries that id: the display URL, the phone remote,
+the thumbnail. Two people on one server are then two separate broadcasts - separate
+scripts, separate playback, separate displays, separate prompter names - and neither can
+disturb the other. The older `?s=` form still works.
+
+Open the site root with no id to start a new session; keep the URL to come back to the
+one you were running. Reloading keeps it, because the id lives in the address bar.
+
+A display only ever joins the session in its own URL, which is what stops it from
+following whoever happens to be prompting next door. Open `/display.html` without an id
+and it lands on a shared `main` session - the same place a mistyped id goes, so a typo
+lands the operator on a show rather than on a blank screen. Any path carrying a dot is
+served as a file, which is what keeps `/js/controller.js` from being read as a session.
+
+Nothing crosses between sessions. The script, the playback, the displays, the prompter
+name, both languages - each belongs to one session and to no other. That holds in the
+browser too: the caches that let a reload come back instantly are keyed by session id, so
+one machine running two shows never puts one script in the other's editor.
+
+A new session starts as **free Teleprompter**; rename it in Settings and the name is yours
+alone. Sessions live in memory and disappear when their last window closes; their settings
+stay in `settings.json`, one entry per session, so reopening the same URL brings the
+prompter name and languages back.
+
+Click either URL in the header to get a **QR code** - the fastest way onto a phone that
+should not have to type an address. The encoder ships with the app rather than coming
+from a CDN: the wifi this feature bridges often has no route to the internet.
+
+### Blackout
+
+A display that loses its controller for more than five seconds goes black.
+
+Whatever is on screen at that moment is frozen at the instant the link died - the operator
+may have paused, re-cued or loaded the next bulletin since - and stale words under a
+reader's eyes are worse than an empty screen. The five-second grace keeps a brief hiccup
+from flashing the wall black, and the autonomous scroll covers those. The connection badge
+stays lit so the operator can see why the screen went dark. It clears by itself the moment
+the controller is back, with the show at the position it should be.
+
 ### Voice Tracking
 
 Click **Voice** in the control bar and allow microphone access. The spoken words are matched
@@ -144,7 +197,10 @@ open-teleprompter/
 │   └── js/
 │       ├── controller.js
 │       ├── display.js
+│       ├── i18n.js           # Interface translation, English and French
+│       ├── qrcode.js         # Vendored QR encoder (MIT)
 │       └── voice-track.js    # Speech recognition and script matching
+├── settings.json             # Written at runtime, one entry per session
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -156,12 +212,80 @@ open-teleprompter/
 - **State Management**: Server-side state management for multiple clients
 - **Mammoth.js**: Used for Word document parsing
 - **Web Speech API**: Voice tracking, no dependency and no audio ever leaves the browser
+- **qrcode-generator**: Vendored in `public/js/qrcode.js` (MIT), so QR codes work offline
+- **Session Isolation**: One state, one client set and one settings entry per session id
 - **Responsive Design**: Works on desktop and mobile devices
 - **Docker Support**: Containerized deployment ready
+
+## Deploying to a VPS
+
+`.github/workflows/ci.yml` runs the tests and builds the image on every push and pull
+request, then deploys to the VPS over SSH when `main` is green. Nothing reaches the
+server that has not built and answered a request in CI first.
+
+### On the VPS, once
+
+Docker Engine with the Compose plugin, git, and a clone of this repository with a deploy
+key that can read it:
+
+```bash
+sudo mkdir -p /opt/freeprompter && sudo chown "$USER" /opt/freeprompter
+git clone git@github.com:TeKuV/teleprompter.git /opt/freeprompter
+cd /opt/freeprompter && docker compose -f docker-compose.prod.yml up -d --build
+```
+
+That checkout is a deploy target, not a workspace: every deploy runs `git reset --hard`
+on it, so anything edited on the server is discarded.
+
+### Repository secrets
+
+| Secret | |
+|---|---|
+| `VPS_HOST` | address of the server |
+| `VPS_USER` | the account that owns the checkout and can reach Docker |
+| `VPS_SSH_KEY` | private key, whose public half is in that account's `authorized_keys` |
+| `VPS_HOST_KEY` | output of `ssh-keyscan <host>`, so the runner recognises the machine |
+| `VPS_PORT` | optional, defaults to 22 |
+| `VPS_PATH` | optional, defaults to `/opt/freeprompter` |
+| `HEALTH_URL` | optional, what the post-deploy check asks for |
+
+The host key is pinned on purpose. `StrictHostKeyChecking=no` would make the runner accept
+whatever answers at that address, which is the whole of the attack it is meant to prevent.
+
+### What production changes
+
+`docker-compose.prod.yml` is not the development one. The dev file bind-mounts the working
+copy over `/app` so edits appear on refresh; a deployment must do the opposite, and let
+the built image be the only source of what runs.
+
+It also mounts a volume for `settings.json`. That file holds every session's prompter name
+and languages, and a deploy replaces the container - with the file inside it. `SETTINGS_FILE`
+moves it onto the volume so a redeploy does not quietly reset every show's name.
+
+### Put TLS in front
+
+The compose file binds to `127.0.0.1`, expecting a reverse proxy to terminate TLS. Two
+things depend on it beyond the usual reasons:
+
+- The WebSocket carries the whole show. The proxy has to pass the upgrade through
+  (`proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade";` in
+  nginx, or nothing at all in Caddy, which does it by itself).
+- Over plain HTTP the browser withholds `navigator.clipboard` and `crypto.randomUUID`:
+  the page has fallbacks for both, but the Copy buttons only reach the modern path on
+  HTTPS. Serving the prompter over TLS is what makes them behave normally.
+
+A Caddyfile is the whole of it:
+
+```
+prompter.example.com {
+    reverse_proxy 127.0.0.1:8080
+}
+```
 
 ## Environment Variables
 
 - `PORT`: Server port for both HTTP and WebSocket (default: 8080)
+- `SETTINGS_FILE`: Where per-session settings are kept (default: `settings.json` beside the server)
 - `NODE_ENV`: Node.js environment (default: production in Docker)
 
 ## Browser Compatibility
@@ -184,7 +308,7 @@ Covers the voice matcher: recognition noise, misheard words, repeated phrases an
 
 ## Contributing
 
-We welcome contributions to Open Teleprompter! Please see our [contribution guidelines](CONTRIBUTING.md) for more information.
+We welcome contributions to free Teleprompter! Please see our [contribution guidelines](CONTRIBUTING.md) for more information.
 
 ## Support
 

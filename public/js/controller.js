@@ -1,5 +1,51 @@
+// A session per show. Two operators on one server are two separate broadcasts, and the
+// id in the URL is what ties a display to its own controller rather than to whoever is
+// prompting next door. Opening the controller without one starts a new session, so they
+// come into being simply by someone opening the page.
+const SESSION_PATH = /^\/(?:d\/)?([a-zA-Z0-9_-]{1,40})$/;
+
+function sessionFromLocation() {
+    const fromQuery = new URLSearchParams(location.search).get('s');
+    if (fromQuery) return fromQuery;
+    if (location.pathname.includes('.')) return '';
+    return SESSION_PATH.exec(location.pathname)?.[1] || '';
+}
+
+function currentSessionId() {
+    const existing = sessionFromLocation();
+    if (existing) return existing;
+
+    // randomUUID needs a secure context and a studio runs this over plain http on the
+    // local network, so it cannot be the only source of an id.
+    const id = (crypto.randomUUID?.() || Math.random().toString(36).slice(2))
+        .replace(/-/g, '')
+        .slice(0, 8);
+    history.replaceState(null, '', `/${id}`);
+    return id;
+}
+
 const SCRIPT_STORAGE_KEY = 'teleprompter-script';
+
+// Both caches are keyed per session. One browser can run several shows, and a single
+// shared key meant a brand new session opened with the previous one's script already in
+// the editor - somebody else's copy, on somebody else's prompter.
+const scriptCacheKey = (sessionId) => `${SCRIPT_STORAGE_KEY}:${sessionId}`;
+
+// The unkeyed keys are what those shared caches used to live under: drop them once, so
+// no old copy of a script lingers in the browser.
+function dropSharedCaches() {
+    try {
+        localStorage.removeItem(SCRIPT_STORAGE_KEY);
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    } catch {
+        /* private mode */
+    }
+}
 const SETTINGS_STORAGE_KEY = 'teleprompter-settings';
+
+// Keyed per session: one browser can run several shows, and a cache shared between them
+// would flash the neighbour's name in the header before the server answers.
+const settingsCacheKey = (sessionId) => `${SETTINGS_STORAGE_KEY}:${sessionId}`;
 const PREROLL_SECONDS = 3;
 // Below this, the voice is ahead or behind by less than a line and the normal scroll
 // already covers it; correcting anyway would jog the display on every spoken word.
@@ -7,6 +53,8 @@ const VOICE_DEADBAND = 0.01;
 
 class TeleprompterController {
     constructor() {
+        this.sessionId = currentSessionId();
+        dropSharedCaches();
         this.ws = null;
         this.isPlaying = false;
         this.isPaused = false;
@@ -61,10 +109,14 @@ class TeleprompterController {
         this.settingsName = document.getElementById('settings-name');
         this.settingsLang = document.getElementById('settings-lang');
         this.settingsUiLang = document.getElementById('settings-ui-lang');
+        this.settingsProgress = document.getElementById('settings-progress');
         this.settingsCancel = document.getElementById('settings-cancel');
         this.settingsClose = document.getElementById('settings-close');
         this.previewBox = document.getElementById('live-preview');
         this.previewFrame = document.getElementById('preview-frame');
+        // The thumbnail is a display like any other, so it has to join this session
+        // and not the one next door: the src is set here, once the id exists.
+        this.previewFrame.src = `display.html?preview=1&s=${this.sessionId}`;
         this.previewStage = document.getElementById('preview-stage');
         this.previewMirrorBtn = document.getElementById('preview-mirror');
         this.previewBadge = document.getElementById('preview-badge');
@@ -81,13 +133,17 @@ class TeleprompterController {
         this.segmentTimer = document.getElementById('segment-timer');
         this.elapsedTimer = document.getElementById('elapsed-timer');
         this.connectionStatus = document.getElementById('connection-status');
-        this.statusIndicator = this.connectionStatus.querySelector('.status-indicator');
-        this.statusText = this.connectionStatus.querySelector('.status-text');
+        this.deviceCountEl = document.getElementById('device-count');
         this.displayUrl = document.getElementById('display-url');
         this.copyUrlBtn = document.getElementById('copy-url');
         this.lanUrlRow = document.getElementById('lan-url-row');
         this.lanUrl = document.getElementById('lan-url');
         this.copyLanUrlBtn = document.getElementById('copy-lan-url');
+        this.qrDialog = document.getElementById('qr-dialog');
+        this.qrCode = document.getElementById('qr-code');
+        this.qrUrl = document.getElementById('qr-url');
+        this.qrCopyBtn = document.getElementById('qr-copy');
+        this.qrCloseBtn = document.getElementById('qr-close');
         this.formatBtn = document.getElementById('format-text');
         this.autoFormatBtn = document.getElementById('auto-format');
         this.formatSettings = document.getElementById('format-settings');
@@ -129,6 +185,7 @@ class TeleprompterController {
         this.resetBtn.addEventListener('click', () => this.reset());
         this.copyUrlBtn.addEventListener('click', () => this.copyDisplayUrl());
         this.copyLanUrlBtn?.addEventListener('click', () => this.copyLanUrl());
+        this.bindQr();
         this.formatBtn.addEventListener('click', () => this.formatTextForTeleprompter());
         this.bindProgressBar();
         
@@ -217,7 +274,7 @@ class TeleprompterController {
     
     connectWebSocket() {
         try {
-            this.updateConnectionStatus('connecting', t('status.connecting'));
+            this.updateConnectionStatus('connecting', 'status.connecting');
             // Construct WebSocket URL dynamically based on current location
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsPort = window.location.port || (window.location.protocol === 'https:' ? 443 : 80);
@@ -226,14 +283,15 @@ class TeleprompterController {
             
             this.ws.onopen = () => {
                 console.log('Connected to WebSocket server');
-                this.updateConnectionStatus('connected', t('status.connected'));
+                this.updateConnectionStatus('connected', 'status.connected');
                 this.reconnectAttempts = 0;
                 
                 // Register as controller. The server answers with stateSync; whether we
                 // adopt the running show or seed it is decided there, not here.
                 this.ws.send(JSON.stringify({
                     type: 'register',
-                    role: 'controller'
+                    role: 'controller',
+                    session: this.sessionId
                 }));
             };
             
@@ -248,18 +306,18 @@ class TeleprompterController {
             
             this.ws.onclose = () => {
                 console.log('WebSocket connection closed');
-                this.updateConnectionStatus('disconnected', t('status.disconnected'));
+                this.updateConnectionStatus('disconnected', 'status.disconnected');
                 this.scheduleReconnect();
             };
             
             this.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                this.updateConnectionStatus('disconnected', t('status.error'));
+                this.updateConnectionStatus('disconnected', 'status.error');
             };
             
         } catch (error) {
             console.error('Failed to connect to WebSocket:', error);
-            this.updateConnectionStatus('disconnected', t('status.failed'));
+            this.updateConnectionStatus('disconnected', 'status.failed');
             this.scheduleReconnect();
         }
     }
@@ -269,13 +327,13 @@ class TeleprompterController {
             this.reconnectAttempts++;
             const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
             
-            this.updateConnectionStatus('connecting', t('status.reconnecting', { s: Math.ceil(delay / 1000) }));
+            this.updateConnectionStatus('connecting', 'status.reconnecting', { s: Math.ceil(delay / 1000) });
             
             setTimeout(() => {
                 this.connectWebSocket();
             }, delay);
         } else {
-            this.updateConnectionStatus('disconnected', t('status.gaveUp'));
+            this.updateConnectionStatus('disconnected', 'status.gaveUp');
         }
     }
     
@@ -303,7 +361,7 @@ class TeleprompterController {
         }
         if (state.settings) this.applySettings(state.settings);
         this.mirrorModeCheckbox.checked = !!state.mirrorMode;
-        this.hideTimerCheckbox.checked = !!state.hideTimer;
+        this.hideTimerCheckbox.checked = !state.hideTimer;
         this.onAirModeCheckbox.checked = !!state.onAir;
         if (state.readingLine) this.applyReadingLineControls(state.readingLine);
         this.editorToolbar?.syncBookmarkCount();
@@ -338,7 +396,7 @@ class TeleprompterController {
     // Second line of defence: the server can restart, the browser keeps the script.
     saveScript(html) {
         try {
-            localStorage.setItem(SCRIPT_STORAGE_KEY, html);
+            localStorage.setItem(scriptCacheKey(this.sessionId), html);
         } catch {
             /* private mode */
         }
@@ -346,7 +404,7 @@ class TeleprompterController {
 
     restoreSavedSettings() {
         try {
-            const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || 'null');
+            const saved = JSON.parse(localStorage.getItem(settingsCacheKey(this.sessionId)) || 'null');
             if (saved?.name) this.applySettings(saved);
         } catch {
             /* private mode, or nothing cached yet */
@@ -355,7 +413,7 @@ class TeleprompterController {
 
     restoreSavedScript() {
         try {
-            const saved = localStorage.getItem(SCRIPT_STORAGE_KEY);
+            const saved = localStorage.getItem(scriptCacheKey(this.sessionId));
             if (saved) this.textPreview.innerHTML = saved;
         } catch {
             /* private mode */
@@ -371,7 +429,7 @@ class TeleprompterController {
         this.sendMessage({ type: 'setFontSize', value: this.fontSize });
         this.updateDurationCalculations();
         this.sendMessage({ type: 'setMirrorMode', enabled: this.mirrorModeCheckbox.checked });
-        this.sendMessage({ type: 'setHideTimer', enabled: this.hideTimerCheckbox.checked });
+        this.sendMessage({ type: 'setHideTimer', enabled: !this.hideTimerCheckbox.checked });
         this.sendMessage({ type: 'setOnAir', enabled: this.onAirModeCheckbox.checked });
         this.sendReadingLine();
         
@@ -388,6 +446,7 @@ class TeleprompterController {
             this.settingsName.value = this.settings.name;
             this.settingsLang.value = this.settings.lang;
             this.settingsUiLang.value = this.settings.uiLang;
+            this.settingsProgress.checked = !!this.settings.showProgress;
             this.settingsDialog.showModal();
         });
         // Both dismiss without saving, like the Escape key the dialog already handles.
@@ -397,15 +456,16 @@ class TeleprompterController {
             const next = {
                 name: this.settingsName.value.trim() || this.settings.name,
                 lang: this.settingsLang.value,
-                uiLang: this.settingsUiLang.value
+                uiLang: this.settingsUiLang.value,
+                showProgress: this.settingsProgress.checked
             };
             this.applySettings(next);
             this.sendMessage({ type: 'setSettings', ...next });
         });
     }
 
-    applySettings({ name, lang, uiLang }) {
-        this.settings = { name, lang, uiLang: resolveUiLang(uiLang) };
+    applySettings({ name, lang, uiLang, showProgress }) {
+        this.settings = { name, lang, uiLang: resolveUiLang(uiLang), showProgress: !!showProgress };
         applyLanguage(this.settings.uiLang);
         // The recogniser follows the reader, so it takes the script language, never the
         // interface one: a French bulletin read from an English interface is normal.
@@ -414,7 +474,7 @@ class TeleprompterController {
         // Cached so the header carries the right name from the first paint; the server
         // still owns the value and overwrites this the moment its state arrives.
         try {
-            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(this.settings));
+            localStorage.setItem(settingsCacheKey(this.sessionId), JSON.stringify(this.settings));
         } catch {
             /* private mode */
         }
@@ -427,8 +487,12 @@ class TeleprompterController {
     retranslate() {
         this.syncPlayButton();
         this.updatePreviewBadge();
-        this.speedWidget?.render?.();
+        this.speedWidget?.retranslate?.();
         if (this.lastConnectionInfo) this.updateConnectionInfo(this.lastConnectionInfo);
+        else if (this.lastStatus) {
+            const { status, key, vars } = this.lastStatus;
+            this.updateConnectionStatus(status, key, vars);
+        }
         if (this.voiceBtn?.disabled) this.voiceBtn.title = t('playback.voiceUnsupported');
         if (!this.scheduledStartInput?.value && this.scheduleInfo) {
             this.scheduleInfo.innerHTML = `<span>${t('schedule.none')}</span>`;
@@ -439,6 +503,16 @@ class TeleprompterController {
         switch (data.type) {
             case 'settings':
                 this.applySettings(data);
+                break;
+
+            // The screen setting belongs to the session, not to this window: the toggle
+            // follows what the server did rather than what this page assumed it would do.
+            case 'setHideTimer':
+                if (this.hideTimerCheckbox) this.hideTimerCheckbox.checked = !data.enabled;
+                break;
+
+            case 'setOnAir':
+                if (this.onAirModeCheckbox) this.onAirModeCheckbox.checked = !!data.enabled;
                 break;
 
             case 'stateSync':
@@ -600,13 +674,13 @@ class TeleprompterController {
         // A silently ignored display would be its own kind of confusing: the bar behaves
         // while that window still crawls, so name it here where the operator looks.
         const stale = data.stale ? t('status.stale', { n: data.stale }) : '';
-        const displayText = t('status.displays', {
+        this.displayCount = data.displays;
+        if (this.deviceCountEl) this.deviceCountEl.textContent = String(data.displays);
+        this.updateConnectionStatus('connected', 'status.displays', {
             n: data.displays,
             s: data.displays !== 1 ? 's' : '',
             stale
         });
-        this.updateConnectionStatus('connected', displayText);
-        this.displayCount = data.displays;
         if (!this.displayCount) {
             this.displayRemaining = null;
             this.displayRatio = null;
@@ -772,9 +846,9 @@ class TeleprompterController {
         this.sendMessage({ type: 'setMirrorMode', enabled: enabled });
     }
     
-    updateHideTimer(enabled) {
+    updateHideTimer(show) {
         this.pinShell();
-        this.sendMessage({ type: 'setHideTimer', enabled: enabled });
+        this.sendMessage({ type: 'setHideTimer', enabled: !show });
     }
     
     updateOnAir(enabled) {
@@ -870,7 +944,6 @@ class TeleprompterController {
         this.isPaused = false;
         this.startTime = Number.isFinite(data.startTime) ? data.startTime : Date.now();
         this.pausedTime = Number.isFinite(data.pausedTime) ? data.pausedTime : 0;
-        if (this.onAirModeCheckbox) this.onAirModeCheckbox.checked = true;
         this.syncPlayButton();
         this.startTimer();
     }
@@ -964,7 +1037,6 @@ class TeleprompterController {
         this.isPaused = false;
         this.startTime = Date.now() - (this.pausedTime || 0);
         
-        this.onAirModeCheckbox.checked = true;
         this.syncPlayButton();
         
         this.sendPlayback('start');
@@ -1238,16 +1310,22 @@ class TeleprompterController {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
     
-    updateConnectionStatus(status, text) {
-        this.statusIndicator.className = `status-indicator ${status}`;
-        this.statusText.textContent = text;
+    // Takes a key, not a sentence, and remembers it: the status is live state, so a
+    // language change has to redraw whatever it currently says.
+    updateConnectionStatus(status, key, vars) {
+        this.lastStatus = { status, key, vars };
+        const label = t(key, vars);
+        this.connectionStatus.className = `device-count ${status}`;
+        this.connectionStatus.title = label;
+        this.connectionStatus.setAttribute('aria-label', label);
+        if (status !== 'connected' && this.deviceCountEl) this.deviceCountEl.textContent = '0';
     }
     
     updateDisplayUrl() {
         const protocol = window.location.protocol;
         const hostname = window.location.hostname;
         const port = window.location.port ? `:${window.location.port}` : '';
-        const displayUrl = `${protocol}//${hostname}${port}/display.html`;
+        const displayUrl = `${protocol}//${hostname}${port}/d/${this.sessionId}`;
         this.displayUrl.textContent = displayUrl;
     }
     
@@ -1275,7 +1353,7 @@ class TeleprompterController {
         }
         if (!host) return;
 
-        this.lanControllerUrl = `${window.location.protocol}//${host}/controller.html`;
+        this.lanControllerUrl = `${window.location.protocol}//${host}/${this.sessionId}`;
         this.lanUrl.textContent = this.lanControllerUrl;
         if (others.length > 1) this.lanUrl.title = t('header.otherAddresses', { list: others.join(', ') });
         this.lanUrlRow.hidden = false;
@@ -1286,6 +1364,10 @@ class TeleprompterController {
         this.copyToClipboard(this.lanControllerUrl, this.copyLanUrlBtn);
     }
 
+    // navigator.clipboard exists only in a secure context, and a studio runs this over
+    // plain http on the local network - so on the very machine that needs to hand a URL
+    // to a phone, the property is undefined and reading .writeText threw synchronously,
+    // before any .catch could see it. The button simply did nothing.
     copyToClipboard(text, button) {
         const done = () => {
             button.textContent = t('header.copied');
@@ -1293,16 +1375,54 @@ class TeleprompterController {
                 button.textContent = t('header.copy');
             }, 2000);
         };
-        navigator.clipboard.writeText(text).then(done).catch(() => {
-            // Fallback for browsers that don't support clipboard API
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
+
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(() => this.copyBySelection(text, done));
+            return;
+        }
+        this.copyBySelection(text, done);
+    }
+
+    // The old way, and the only way without a secure context.
+    copyBySelection(text, done) {
+        const field = document.createElement('textarea');
+        field.value = text;
+        field.setAttribute('readonly', '');
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        try {
             document.execCommand('copy');
-            document.body.removeChild(textArea);
             done();
+        } catch {
+            // Nothing left to try: leave the URL selected so it can be copied by hand.
+        }
+        field.remove();
+    }
+
+    bindQr() {
+        if (!this.qrDialog) return;
+        this.displayUrl.addEventListener('click', () => this.showQr(this.displayUrl.textContent));
+        this.lanUrl?.addEventListener('click', () => {
+            if (this.lanControllerUrl) this.showQr(this.lanControllerUrl);
         });
+        this.qrCloseBtn.addEventListener('click', () => this.qrDialog.close());
+        this.qrCopyBtn.addEventListener('click', () => this.copyToClipboard(this.qrUrl.textContent, this.qrCopyBtn));
+    }
+
+    // A phone is the fastest way to reach a URL nobody wants to type: point the camera.
+    // The encoder is vendored rather than fetched, because the wifi this code is meant to
+    // bridge often has no route to the internet.
+    showQr(url) {
+        if (!url || typeof qrcode !== 'function') return;
+        const code = qrcode(0, 'M');
+        code.addData(url);
+        code.make();
+        this.qrCode.innerHTML = code.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+        this.qrUrl.textContent = url;
+        this.qrCopyBtn.textContent = t('header.copy');
+        this.qrDialog.showModal();
     }
 
     copyDisplayUrl() {

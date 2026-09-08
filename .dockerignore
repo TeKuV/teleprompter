@@ -67,3 +67,6 @@ coverage
 
 # Runtime settings written by the server
 settings.json
+
+# CI
+.github

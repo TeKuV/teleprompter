@@ -361,6 +361,10 @@
     color: var(--text-strong);
 }
 
+/* Kept out of the `.control-group button:not(...)` catch-alls in controller.css and
+   theme.css: those carry a class of specificity per exclusion, so this rule lost to them
+   and the button looked identical pressed or not. Any new control in a control group has
+   to be added to those lists - which is the cost of writing style rules that way. */
 .live-preview-mirror[aria-pressed="true"] {
     background: var(--active-bg);
     border-color: var(--active-bg);
@@ -419,9 +423,9 @@
 }
 
 .editor-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     flex-shrink: 0;
     padding: 16px 16px 0;
@@ -432,6 +436,30 @@
 .editor-header h3 {
     padding: 0;
     margin: 0;
+    flex-shrink: 0;
+    justify-self: start;
+}
+
+.editor-header-urls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+    min-width: 0;
+    gap: 12px;
+}
+
+.editor-header-urls .display-url {
+    min-width: 0;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.editor-header-urls .url-link {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .editor-header-actions {
@@ -439,9 +467,9 @@
     align-items: center;
     flex-wrap: wrap;
     justify-content: flex-end;
+    justify-self: end;
     gap: 8px;
     margin-bottom: 8px;
-    margin-left: auto;
 }
 
 .editor-header-actions button {
@@ -935,4 +963,21 @@
     background: var(--active-bg);
     border-color: var(--active-bg);
     color: var(--active-fg);
+}
+
+.settings-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.settings-check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--active-bg);
+    cursor: pointer;
 }

@@ -1,0 +1,24 @@
+# Production compose. The other file is for development: it bind-mounts the working copy
+# over /app so edits show up on refresh, which is exactly what a deployment must not do -
+# there the built image is the artefact, and nothing on the host may override it.
+services:
+  teleprompter:
+    build: .
+    image: freeprompter:latest
+    # A prompter that stays down after a reboot is a prompter that fails at 6am.
+    restart: unless-stopped
+    ports:
+      # Bound to the loopback: TLS and the WebSocket upgrade are the reverse proxy's job,
+      # and a secure context is what gives the browser its clipboard back. Publish on
+      # 0.0.0.0 only if this really is the only thing in front.
+      - "127.0.0.1:8080:8080"
+    environment:
+      PORT: "8080"
+      NODE_ENV: production
+      SETTINGS_FILE: /app/data/settings.json
+    volumes:
+      # Session names and languages outlive the container they were written in.
+      - prompter-data:/app/data
+
+volumes:
+  prompter-data:

@@ -174,7 +174,7 @@ body {
     background: var(--bg-hover);
 }
 
-.control-group button:not(.format-btn):not(.speed-preset):not(.control-btn):not(.display-toggle):not(.editor-format-btn):not(.editor-format-settings) {
+.control-group button:not(.format-btn):not(.speed-preset):not(.control-btn):not(.display-toggle):not(.editor-format-btn):not(.editor-format-settings):not(.outline-btn):not(.live-preview-mirror) {
     background: var(--bg-elevated);
     border-color: var(--border-strong);
     color: var(--text);

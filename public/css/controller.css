@@ -49,6 +49,42 @@ body {
     flex-wrap: wrap;
 }
 
+.device-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-strong, #6a6a6a);
+    border-radius: 6px;
+    background: var(--bg-elevated, #1a1a1a);
+    color: var(--text-muted, #c8c8c8);
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.device-count svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.device-count.connected {
+    color: var(--text, #e8e8e8);
+}
+
+.device-count.connecting {
+    color: #f39c12;
+}
+
+.device-count.disconnected {
+    opacity: 0.55;
+}
+
 .connection-status {
     display: flex;
     align-items: center;
@@ -180,7 +216,7 @@ body {
     font-size: 14px;
 }
 
-.control-group button:not(.display-toggle):not(.speed-preset):not(.editor-format-btn):not(.editor-format-settings) {
+.control-group button:not(.display-toggle):not(.speed-preset):not(.editor-format-btn):not(.editor-format-settings):not(.outline-btn):not(.live-preview-mirror) {
     padding: 8px 16px;
     background: #3498db;
     border: none;
@@ -191,15 +227,60 @@ body {
     transition: background 0.3s;
 }
 
-.control-group button:not(.display-toggle):not(.speed-preset):not(.editor-format-btn):not(.editor-format-settings):hover {
+.control-group button:not(.display-toggle):not(.speed-preset):not(.editor-format-btn):not(.editor-format-settings):not(.outline-btn):not(.live-preview-mirror):hover {
     background: #2980b9;
+}
+
+.outline-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border-strong, #8d8d8d);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text, #f2f2f2);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.outline-btn:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.08));
 }
 
 .file-options {
     display: flex;
-    gap: 10px;
+    align-items: stretch;
+    gap: 8px;
     margin-top: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+}
+
+.file-options > button,
+.file-options .editor-format-control {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.file-options > #clear-text {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+.file-options .editor-format-control,
+.file-options > .format-btn {
+    flex: 1.4 1 0;
+}
+
+.file-options .editor-format-btn {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-options .editor-format-btn span,
+.file-options > button {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .format-btn {
@@ -250,10 +331,6 @@ body {
 @media (max-width: 768px) {
     .format-checkboxes {
         grid-template-columns: 1fr;
-    }
-    
-    .file-options {
-        flex-direction: column;
     }
 }
 
@@ -444,35 +521,56 @@ body {
 
 .script-progress {
     --progress: 0%;
+    position: relative;
     height: 20px;
     display: flex;
     align-items: center;
 }
 
-.script-progress input[type="range"] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 6px;
-    margin: 0;
+/* The line lives on the wrapper, not on the input: a 3px-tall input would be a dart
+   board to hit. The input keeps its full height as the target and goes transparent,
+   so the visible hairline can thicken under the pointer without moving the hit area. */
+.script-progress::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
     border-radius: 999px;
     background: linear-gradient(
         to right,
         var(--active-bg, #fff) var(--progress),
         var(--border-strong, #3a3a3a) var(--progress)
     );
+    transition: height 0.15s ease;
+    pointer-events: none;
+}
+
+.script-progress:hover::before,
+.script-progress:focus-within::before {
+    height: 6px;
+}
+
+.script-progress input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    background: transparent;
     outline: none;
     cursor: pointer;
 }
 
 .script-progress input[type="range"]::-webkit-slider-runnable-track {
-    height: 6px;
+    height: 20px;
     border: 0;
     background: transparent;
 }
 
 .script-progress input[type="range"]::-moz-range-track {
-    height: 6px;
+    height: 20px;
     border: 0;
     background: transparent;
 }
@@ -483,12 +581,14 @@ body {
     height: 14px;
     /* WebKit hangs the thumb off the top of a track that has an explicit height:
        pull it back by (track - thumb) / 2. Firefox centres it on its own. */
-    margin-top: -4px;
+    margin-top: 3px;
     border: 0;
     border-radius: 50%;
     background: var(--active-bg, #fff);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--active-bg, #fff) 22%, transparent);
     cursor: grab;
+    opacity: 0;
+    transition: opacity 0.15s ease;
 }
 
 .script-progress input[type="range"]::-moz-range-thumb {
@@ -499,9 +599,32 @@ body {
     background: var(--active-bg, #fff);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--active-bg, #fff) 22%, transparent);
     cursor: grab;
+    opacity: 0;
+    transition: opacity 0.15s ease;
 }
 
-.script-progress input[type="range"]:active::-webkit-slider-thumb,
+/* The thumb is a hover affordance: on a timeline that sits under the script for the
+   whole show it would otherwise be a bright dot burning on screen with nothing to do.
+   Keyboard focus and a drag in progress still show it - someone moving it has to see
+   what they are moving, and a drag keeps hold even when the pointer leaves the track. */
+.script-progress input[type="range"]:hover::-webkit-slider-thumb,
+.script-progress input[type="range"]:focus-visible::-webkit-slider-thumb,
+.script-progress input[type="range"]:active::-webkit-slider-thumb {
+    opacity: 1;
+}
+
+.script-progress input[type="range"]:hover::-moz-range-thumb,
+.script-progress input[type="range"]:focus-visible::-moz-range-thumb,
+.script-progress input[type="range"]:active::-moz-range-thumb {
+    opacity: 1;
+}
+
+/* One vendor pseudo-element a browser does not know invalidates the whole selector list,
+   so these two cannot share a rule - grouped, neither of them ever applied. */
+.script-progress input[type="range"]:active::-webkit-slider-thumb {
+    cursor: grabbing;
+}
+
 .script-progress input[type="range"]:active::-moz-range-thumb {
     cursor: grabbing;
 }
@@ -726,7 +849,18 @@ body {
     }
 
     .control-panel-main {
+        flex-direction: column;
+        align-items: stretch;
         gap: 10px;
+    }
+
+    .playback-controls {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .timer-display {
+        justify-content: center;
     }
 
     .control-panel-main .display-toggles {
@@ -757,19 +891,6 @@ body {
 }
 
 @media (max-width: 560px) {
-    .control-panel-main {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .playback-controls {
-        justify-content: center;
-    }
-
-    .timer-display {
-        justify-content: center;
-    }
-
     .display-toggles .display-toggle {
         height: 40px;
         padding: 0 10px;
@@ -796,10 +917,93 @@ body {
     }
 
     .file-options {
-        flex-direction: column;
+        gap: 6px;
     }
 
-    .file-options > button {
-        width: 100%;
+    .file-options > button,
+    .file-options .editor-format-btn {
+        padding-left: 8px;
+        padding-right: 8px;
+        font-size: 12px;
     }
+}
+
+/* The two URLs are the way in for another machine, so they are controls, not labels:
+   click one and its QR code opens. Buttons rather than spans, so a keyboard reaches
+   them too. */
+.url-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+}
+
+.url-link:hover {
+    text-decoration-color: currentColor;
+}
+
+/* A closed dialog is hidden by the browser's own `dialog:not([open])` rule - and any
+   author `display` beats it, so the flex layout below has to say it again or the modal
+   sits open on the page from the first paint. */
+.qr-dialog:not([open]) {
+    display: none;
+}
+
+.qr-dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(320px, calc(100vw - 32px));
+    height: fit-content;
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--bg-elevated);
+    color: var(--text-strong);
+}
+
+.qr-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+/* A scanner needs dark modules on a light ground, whatever the interface theme is. */
+.qr-code {
+    padding: 12px;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.qr-code svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.qr-url {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+    text-align: center;
+}
+
+.qr-copy {
+    align-self: stretch;
+    height: 38px;
+    border: 1px solid var(--active-bg);
+    border-radius: 8px;
+    background: var(--active-bg);
+    color: var(--active-fg);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
 }

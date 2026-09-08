@@ -71,13 +71,10 @@ const SpeedControl = (() => {
             this.primaryRoot.addEventListener('click', pick);
         }
 
-        // Re-rendered on a language change: the preset tooltips and the wpm hint are
-        // written from here, so the translator walking the markup never sees them.
-        render() {
-            this.primaryRoot.querySelectorAll('[data-speed]').forEach((btn) => {
-                const value = Number(btn.dataset.speed);
-                btn.title = `${label(value)} · ${t('speed.wpm', { n: Math.round(BASE_WPM * value) })}`;
-            });
+        // The preset tooltips and the wpm hint are written from here, so the translator
+        // walking the markup never sees them: rebuilding the buttons is the refresh.
+        retranslate() {
+            this.render();
             this.sync();
         }
 

@@ -24,8 +24,15 @@ class TeleprompterDisplay {
         this.heartbeatInterval = null;
         this.lastPong = 0;
         this.offline = false;
+        this.blackoutTimer = null;
         this.isPreview = new URLSearchParams(location.search).get('preview') === '1';
+        // Either form works: /d/<id> is what an operator is given, ?s=<id> is what the
+        // preview iframe uses and what older links carry.
+        this.sessionId = new URLSearchParams(location.search).get('s')
+            || /^\/d\/([a-zA-Z0-9_-]{1,40})$/.exec(location.pathname)?.[1]
+            || '';
         
+        this.lastStatus = { status: 'disconnected', key: 'status.disconnected' };
         this.initializeElements();
         this.applySpeed(this.speed, this.speedMultiplier);
         this.restoreSession();
@@ -33,6 +40,7 @@ class TeleprompterDisplay {
         if (this.isPreview) document.body.classList.add('preview');
         if (!this.isPreview) this.bindKeyboardShortcuts();
         
+        document.addEventListener('appLanguageChange', () => this.applyConnectionStatus());
         window.addEventListener('resize', () => this.invalidateMetrics());
         window.addEventListener('pagehide', () => this.persistSession());
 
@@ -55,6 +63,8 @@ class TeleprompterDisplay {
         this.fullscreenHint = document.getElementById('fullscreen-hint');
         this.readingLine = document.getElementById('reading-line');
         this.preroll = document.getElementById('preroll');
+        this.progressLine = document.getElementById('display-progress');
+        this.progressFill = document.getElementById('display-progress-fill');
         this.nextCue = document.getElementById('next-cue');
         this.nextCueIn = document.getElementById('next-cue-in');
         this.nextCueLabel = document.getElementById('next-cue-label');
@@ -62,7 +72,7 @@ class TeleprompterDisplay {
     
     connectWebSocket() {
         try {
-            this.updateConnectionStatus('connecting', t('status.connecting'));
+            this.updateConnectionStatus('connecting', 'status.connecting');
             // Construct WebSocket URL dynamically based on current location
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsPort = window.location.port || (window.location.protocol === 'https:' ? 443 : 80);
@@ -72,14 +82,16 @@ class TeleprompterDisplay {
             this.ws.onopen = () => {
                 console.log('Connected to WebSocket server');
                 this.offline = false;
-                this.updateConnectionStatus('connected', t('status.connected'));
+                this.clearBlackout();
+                this.updateConnectionStatus('connected', 'status.connected');
                 this.reconnectAttempts = 0;
                 
                 // Register as display
                 this.ws.send(JSON.stringify({
                     type: 'register',
                     role: 'display',
-                    preview: this.isPreview
+                    preview: this.isPreview,
+                    session: this.sessionId
                 }));
                 this.sendFullscreenState();
                 this.startHeartbeat();
@@ -98,21 +110,41 @@ class TeleprompterDisplay {
             this.ws.onclose = () => {
                 this.stopHeartbeat();
                 this.offline = true;
+                this.armBlackout();
                 this.scheduleReconnect();
             };
             
             this.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                this.updateConnectionStatus('disconnected', 'Connection Error');
+                this.updateConnectionStatus('disconnected', 'status.error');
             };
             
         } catch (error) {
             console.error('Failed to connect to WebSocket:', error);
-            this.updateConnectionStatus('disconnected', 'Failed to Connect');
+            this.updateConnectionStatus('disconnected', 'status.failed');
             this.scheduleReconnect();
         }
     }
     
+    // A screen that has lost the show must not keep showing it. Whatever is on it is
+    // frozen at the moment the link died - the operator may have paused, re-cued or
+    // loaded the next bulletin since - and stale words under a reader's eyes are worse
+    // than nothing at all. The grace period is what keeps a one-second hiccup from
+    // flashing the wall black; the autonomous scroll covers those.
+    // ponytail: a fixed 5s. Make it a setting only if a studio's link is worse than that.
+    armBlackout() {
+        if (this.blackoutTimer) return;
+        this.blackoutTimer = setTimeout(() => {
+            document.body.classList.add('blackout');
+        }, 5000);
+    }
+
+    clearBlackout() {
+        clearTimeout(this.blackoutTimer);
+        this.blackoutTimer = null;
+        document.body.classList.remove('blackout');
+    }
+
     // A prompter must come back on its own: a server restart mid-show used to exhaust
     // five attempts in half a minute and leave the screen dead until someone reloaded it.
     scheduleReconnect() {
@@ -121,9 +153,8 @@ class TeleprompterDisplay {
         const wait = Math.ceil(delay / 1000);
         this.updateConnectionStatus(
             'connecting',
-            this.isPlaying
-                ? `Autonomous — reconnecting in ${wait}s…`
-                : `Reconnecting in ${wait}s...`
+            this.isPlaying ? 'status.autonomous' : 'status.reconnecting',
+            { s: wait }
         );
         setTimeout(() => this.connectWebSocket(), delay);
     }
@@ -174,6 +205,7 @@ class TeleprompterDisplay {
                 
             case 'settings':
                 applyLanguage(data.uiLang);
+                this.setProgressLine(data.showProgress);
                 break;
 
             case 'setText':
@@ -262,7 +294,10 @@ class TeleprompterDisplay {
             this.setPrompterText(state.text, state.textStyles);
         }
         
-        if (state.settings) applyLanguage(state.settings.uiLang);
+        if (state.settings) {
+            applyLanguage(state.settings.uiLang);
+            this.setProgressLine(state.settings.showProgress);
+        }
         this.applySpeed(state.speed, state.speedMultiplier);
         this.applyFontSize(state.fontSize);
         if (Number.isFinite(state.segmentLength)) {
@@ -600,6 +635,19 @@ class TeleprompterDisplay {
         }, 1000);
     }
 
+    setProgressLine(enabled) {
+        if (!this.progressLine) return;
+        this.progressLine.hidden = !enabled;
+        // Paint it at once: turned on while the show is paused, nothing else would
+        // redraw it and the line would sit empty under a half-read script.
+        this.updateProgressLine();
+    }
+
+    updateProgressLine() {
+        if (!this.progressLine || this.progressLine.hidden) return;
+        this.progressFill.style.width = `${(this.progressRatio() * 100).toFixed(2)}%`;
+    }
+
     startTimer() {
         this.stopTimer();
         this.updateDisplay();
@@ -715,14 +763,21 @@ class TeleprompterDisplay {
         this.updateCountdownDisplay(this.remainingMs());
         this.updateElapsedDisplay(elapsed);
         this.updateNextCue();
+        this.updateProgressLine();
         this.persistSession();
         this.sendProgress();
+    }
+
+    // Parked per session: a tab moved from one show to another must not resume at the
+    // position it held in the previous one.
+    sessionCacheKey() {
+        return `teleprompter-display:${this.sessionId || 'main'}`;
     }
 
     persistSession() {
         if (this.isPreview) return;
         try {
-            sessionStorage.setItem('teleprompter-display', JSON.stringify({
+            sessionStorage.setItem(this.sessionCacheKey(), JSON.stringify({
                 ratio: this.progressRatio(),
                 speed: this.speed,
                 multiplier: this.speedMultiplier,
@@ -735,13 +790,13 @@ class TeleprompterDisplay {
     }
 
     clearSession() {
-        try { sessionStorage.removeItem('teleprompter-display'); } catch { /* private mode */ }
+        try { sessionStorage.removeItem(this.sessionCacheKey()); } catch { /* private mode */ }
     }
 
     restoreSession() {
         if (this.isPreview) return;
         try {
-            const saved = JSON.parse(sessionStorage.getItem('teleprompter-display') || 'null');
+            const saved = JSON.parse(sessionStorage.getItem(this.sessionCacheKey()) || 'null');
             if (!saved) return;
             if (saved.speed) this.applySpeed(saved.speed, saved.multiplier);
             const resume = () => {
@@ -828,9 +883,18 @@ class TeleprompterDisplay {
         this.elapsedTime.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
     
-    updateConnectionStatus(status, text) {
+    // Takes a key rather than a sentence, and remembers it: the status is live state,
+    // so a language change has to redraw whatever it currently says instead of leaving
+    // a stale sentence under a green indicator.
+    updateConnectionStatus(status, key, vars) {
+        this.lastStatus = { status, key, vars };
+        this.applyConnectionStatus();
+    }
+
+    applyConnectionStatus() {
+        const { status, key, vars } = this.lastStatus;
         this.statusIndicator.className = `status-indicator ${status}`;
-        this.statusText.textContent = text;
+        this.statusText.textContent = t(key, vars);
     }
     
     bindKeyboardShortcuts() {

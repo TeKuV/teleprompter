@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teleprompter Display</title>
     <script src="js/i18n.js"></script>
@@ -35,6 +36,8 @@
             </div>
         </div>
         
+        <div class="display-progress" id="display-progress" hidden><span id="display-progress-fill"></span></div>
+
         <div class="fullscreen-hint" id="fullscreen-hint" data-i18n="display.fullscreenHint">Press any key for fullscreen</div>
         
         <div class="on-air-indicator" id="on-air-indicator">
@@ -44,7 +47,7 @@
         
         <div class="connection-status" id="connection-status">
             <span class="status-indicator disconnected">●</span>
-            <span class="status-text" data-i18n="status.disconnected">Disconnected</span>
+            <span class="status-text">Disconnected</span>
         </div>
     </div>
     

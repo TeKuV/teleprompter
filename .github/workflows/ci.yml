@@ -1,0 +1,141 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push while a deploy is running would race it onto the VPS. Queue instead, and
+# never cancel a deploy half way through.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18' # matches the Dockerfile's node:18-alpine
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      # Most of this app is browser JavaScript that no unit test loads, and a syntax error
+      # there is invisible until a page is opened. `node --check` catches it in seconds.
+      - name: Parse every script
+        run: |
+          for file in server.js public/js/*.js test/*.js; do
+            case "$file" in
+              public/js/qrcode.js) continue ;;  # vendored, not ours to lint
+            esac
+            node --check "$file"
+          done
+
+      # The translator only ever reads keys that exist; a key marked in the markup but
+      # missing from the dictionary would render as the raw key on screen.
+      - name: Every data-i18n key exists
+        run: |
+          node -e '
+            const fs = require("fs");
+            const { I18N } = require("./public/js/i18n.js");
+            const pages = ["public/controller.html", "public/display.html"];
+            const used = new Set();
+            for (const page of pages) {
+              const html = fs.readFileSync(page, "utf-8");
+              for (const m of html.matchAll(/data-i18n(?:-title|-aria|-placeholder)?="([^"]+)"/g)) {
+                used.add(m[1]);
+              }
+            }
+            const missing = [...used].filter((key) => !(key in I18N.en));
+            if (missing.length) {
+              console.error("Keys used in the markup but absent from the dictionary:", missing);
+              process.exit(1);
+            }
+            console.log(`i18n markup: ${used.size} keys, all present`);
+          '
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Building here means a broken Dockerfile fails the pull request rather than the
+      # VPS, where the failure would land between two live shows.
+      - name: Build the image
+        run: docker build -t freeprompter:ci .
+
+      - name: The container serves and stops cleanly
+        run: |
+          docker run -d --name ci-check -p 8080:8080 freeprompter:ci
+          for i in $(seq 1 20); do
+            if curl -fs -o /dev/null http://localhost:8080/controller.html; then ok=1; break; fi
+            sleep 1
+          done
+          [ "${ok:-0}" = "1" ] || { docker logs ci-check; exit 1; }
+          # Node is PID 1 and handles SIGTERM itself; anything but a prompt, clean stop
+          # means docker had to kill it, and a killed prompter drops its sockets mid-show.
+          start=$(date +%s)
+          docker stop ci-check
+          [ $(( $(date +%s) - start )) -lt 8 ] || { echo "container ignored SIGTERM"; exit 1; }
+          [ "$(docker inspect -f '{{.State.ExitCode}}' ci-check)" = "0" ] || {
+            echo "container exited $(docker inspect -f '{{.State.ExitCode}}' ci-check), expected 0"
+            exit 1
+          }
+
+  deploy:
+    needs: image
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      # No third-party action here: this step holds a key to the server, and the whole of
+      # what it needs is ssh, which the runner already has.
+      - name: Load the deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Pinned rather than trusted on first use: StrictHostKeyChecking=no would accept
+          # whatever answers on that address, which is the whole of the attack.
+          echo "${{ secrets.VPS_HOST_KEY }}" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          # Not HOST/USER/PORT: those already mean something in the runner's shell, and an
+          # empty secret would quietly ssh to the runner's own account instead of failing.
+          DEPLOY_HOST: ${{ secrets.VPS_HOST }}
+          DEPLOY_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_PORT: ${{ secrets.VPS_PORT || 22 }}
+          APP_PATH: ${{ secrets.VPS_PATH || '/opt/freeprompter' }}
+        run: |
+          : "${DEPLOY_HOST:?set the VPS_HOST secret}"
+          : "${DEPLOY_USER:?set the VPS_USER secret}"
+          ssh -i ~/.ssh/id_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -euo pipefail <<EOF
+            cd "$APP_PATH"
+            git fetch --prune origin main
+            # The checkout is a deploy target, not a workspace: it matches the branch or
+            # it is wrong. Anything edited on the server is discarded here.
+            git reset --hard origin/main
+            docker compose -f docker-compose.prod.yml up -d --build
+            docker image prune -f
+          EOF
+
+      - name: It is actually answering
+        env:
+          HEALTH_URL: ${{ secrets.HEALTH_URL || 'http://127.0.0.1:8080/controller.html' }}
+          DEPLOY_HOST: ${{ secrets.VPS_HOST }}
+          DEPLOY_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_PORT: ${{ secrets.VPS_PORT || 22 }}
+        run: |
+          # "docker compose up" returning 0 only means the container started. Ask the app.
+          ssh -i ~/.ssh/id_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "for i in \$(seq 1 20); do curl -fs -o /dev/null '$HEALTH_URL' && exit 0; sleep 1; done; exit 1"

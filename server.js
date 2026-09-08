@@ -6,24 +6,39 @@ const os = require('os');
 
 const PORT = process.env.PORT || 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const SETTINGS_FILE = path.join(__dirname, 'settings.json');
+// Kept outside the image in production: it holds every session's prompter name and
+// languages, and a redeploy replaces the container - with the file in it.
+const SETTINGS_FILE = process.env.SETTINGS_FILE || path.join(__dirname, 'settings.json');
 // lang is what the reader says, uiLang is what the operator reads: two settings,
 // because a French bulletin is routinely run from an English interface.
-const DEFAULT_SETTINGS = { name: 'Africa24TV Prompter', lang: '', uiLang: 'en' };
+const DEFAULT_SETTINGS = { name: 'free Teleprompter', lang: '', uiLang: 'en', showProgress: false };
 
 // A station name has to outlive a restart, and the show state deliberately does not, so
-// the settings are the one thing kept on disk.
-function loadSettings() {
+// the settings are the one thing kept on disk - one entry per session, since two people
+// working in separate sessions do not share a prompter name or an interface language.
+function readSettingsFile() {
     try {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) };
+        const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+        // The file used to hold one flat settings object, before sessions existed.
+        return raw.name === undefined ? raw : { main: raw };
     } catch {
-        return { ...DEFAULT_SETTINGS };
+        return {};
     }
 }
 
-function saveSettings(settings) {
+function loadSettings(sessionId) {
+    const file = readSettingsFile();
+    // A session gets its own saved settings or the defaults - never another session's.
+    // Inheriting from `main` would mean one operator renaming their show quietly renames
+    // every show started after it.
+    return { ...DEFAULT_SETTINGS, ...(file[sessionId] || {}) };
+}
+
+function saveSettings(sessionId, settings) {
     try {
-        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+        const file = readSettingsFile();
+        file[sessionId] = settings;
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(file, null, 2));
     } catch (error) {
         console.error('Could not save settings:', error.message);
     }
@@ -39,6 +54,18 @@ function lanAddresses() {
         // actually reach is almost never one of theirs, so they go last.
         // ponytail: an ordering guess, read the routing table if a setup ever fools it.
         .sort((a, b) => Number(a.startsWith('172.')) - Number(b.startsWith('172.')));
+}
+
+// What gets typed into a phone or written on a call sheet: no file extension, no query
+// string. /<session> is a controller, /d/<session> is its display. Anything carrying a
+// dot is a real file and is served as one, which is what keeps /js/app.js out of this.
+const SESSION_PATH = /^\/(d\/)?([a-zA-Z0-9_-]{1,40})$/;
+
+function requestedFile(urlPath) {
+    if (urlPath === '/') return 'controller.html';
+    const match = urlPath.includes('.') ? null : SESSION_PATH.exec(urlPath);
+    if (match) return match[1] ? 'display.html' : 'controller.html';
+    return urlPath.replace(/^\/+/, '');
 }
 
 const server = http.createServer((req, res) => {
@@ -57,7 +84,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    const requestPath = urlPath === '/' ? 'controller.html' : urlPath.replace(/^\/+/, '');
+    const requestPath = requestedFile(urlPath);
     const filePath = path.normalize(path.join(PUBLIC_DIR, requestPath));
 
     if (!filePath.startsWith(PUBLIC_DIR)) {
@@ -106,39 +133,67 @@ const server = http.createServer((req, res) => {
 // Create WebSocket server using the same HTTP server
 const wss = new WebSocket.Server({ server });
 
-// Throttles the position the displays reconcile against; the value has to stay fresh,
-// so it is relayed as it arrives rather than resent from the stored state.
-let lastPositionSync = 0;
+// One show per session. Two people pointed at the same server are two separate
+// broadcasts: separate scripts, separate playback, separate displays. The session id
+// travels in the URL (?s=...), which is what makes a display belong to one controller
+// and not to whoever happens to be prompting next door.
+const sessions = new Map();
 
-// Store connected clients
-const clients = {
-    controllers: new Set(),
-    displays: new Set()
-};
+function freshState(sessionId) {
+    return {
+        text: '',
+        textStyles: null,
+        speed: 150,
+        speedMultiplier: 1,
+        fontSize: 48,
+        segmentLength: 10 * 60, // 10 minutes in seconds
+        segmentMinutes: 10,
+        segmentSeconds: 0,
+        isPlaying: false,
+        isPaused: false,
+        currentPosition: 0,
+        progressRatio: 0,
+        startTime: null,
+        pausedTime: 0,
+        mirrorMode: false,
+        hideTimer: true,
+        onAir: false,
+        scheduledStartTime: null,
+        readingLine: { enabled: false, position: 50, color: '#ffffff', thickness: 2 },
+        settings: loadSettings(sessionId)
+    };
+}
 
-// Current state to sync new connections
-let currentState = {
-    text: '',
-    textStyles: null,
-    speed: 150,
-    speedMultiplier: 1,
-    fontSize: 48,
-    segmentLength: 10 * 60, // 10 minutes in seconds
-    segmentMinutes: 10,
-    segmentSeconds: 0,
-    isPlaying: false,
-    isPaused: false,
-    currentPosition: 0,
-    progressRatio: 0,
-    startTime: null,
-    pausedTime: 0,
-    mirrorMode: false,
-    hideTimer: false,
-    onAir: false,
-    scheduledStartTime: null,
-    readingLine: { enabled: false, position: 50, color: '#ffffff', thickness: 2 },
-    settings: loadSettings()
-};
+// Anything unexpected collapses to one shared session rather than to a new empty one:
+// a typo in a URL should land the operator on a show, not on a blank prompter.
+function sessionKey(raw) {
+    const key = String(raw || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+    return key || 'main';
+}
+
+function sessionFor(raw) {
+    const id = sessionKey(raw);
+    if (!sessions.has(id)) {
+        console.log(`Session ${id} created`);
+        sessions.set(id, {
+            id,
+            controllers: new Set(),
+            displays: new Set(),
+            // Throttles the position the displays reconcile against; the value has to stay
+            // fresh, so it is relayed as it arrives rather than resent from the state.
+            lastPositionSync: 0,
+            state: freshState(id)
+        });
+    }
+    return sessions.get(id);
+}
+
+function sendTo(clients, message) {
+    const messageStr = JSON.stringify(message);
+    clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) client.send(messageStr);
+    });
+}
 
 wss.on('connection', (ws, req) => {
     console.log('New WebSocket connection');
@@ -147,6 +202,14 @@ wss.on('connection', (ws, req) => {
         try {
             const data = JSON.parse(message.toString());
             
+            // Everything below reads and writes one session's show. Resolving it here, under
+            // the names the handlers already use, is what keeps sessions apart without
+            // rewriting every case.
+            const session = ws.session || sessionFor(data.session);
+            const currentState = session.state;
+            const broadcastToDisplays = (msg) => sendTo(session.displays, msg);
+            const broadcastToControllers = (msg) => sendTo(session.controllers, msg);
+
             switch (data.type) {
                 case 'register':
                     handleRegistration(ws, data);
@@ -197,11 +260,15 @@ wss.on('connection', (ws, req) => {
                 case 'setHideTimer':
                     currentState.hideTimer = data.enabled;
                     broadcastToDisplays({ type: 'setHideTimer', enabled: data.enabled });
+                    // Controllers hear it too: a second one open on the same session would
+                    // otherwise keep showing a toggle that no longer matches the screen.
+                    broadcastToControllers({ type: 'setHideTimer', enabled: data.enabled });
                     break;
                     
                 case 'setOnAir':
                     currentState.onAir = data.enabled;
                     broadcastToDisplays({ type: 'setOnAir', enabled: data.enabled });
+                    broadcastToControllers({ type: 'setOnAir', enabled: data.enabled });
                     break;
 
                 case 'setReadingLine':
@@ -219,9 +286,10 @@ wss.on('connection', (ws, req) => {
                         name: String(data.name ?? currentState.settings.name).slice(0, 60).trim()
                             || DEFAULT_SETTINGS.name,
                         lang: String(data.lang ?? currentState.settings.lang).slice(0, 15),
-                        uiLang: String(data.uiLang ?? currentState.settings.uiLang).slice(0, 5)
+                        uiLang: String(data.uiLang ?? currentState.settings.uiLang).slice(0, 5),
+                        showProgress: !!(data.showProgress ?? currentState.settings.showProgress)
                     };
-                    saveSettings(currentState.settings);
+                    saveSettings(session.id, currentState.settings);
                     // The name is on every controller and the interface language is on
                     // every screen, so both ends hear about it.
                     broadcastToControllers({ type: 'settings', ...currentState.settings });
@@ -262,6 +330,13 @@ wss.on('connection', (ws, req) => {
                         segmentDuration: data.segmentDuration || currentState.segmentLength * 1000
                     });
                     broadcastToDisplays({ type: 'setOnAir', enabled: true });
+                    broadcastToControllers({ type: 'setOnAir', enabled: true });
+                    // Going on air brings the countdown back, and the controllers are told
+                    // so their toggle keeps matching the screen. Deciding this here and
+                    // again in the controller is what let the two drift apart.
+                    currentState.hideTimer = false;
+                    broadcastToDisplays({ type: 'setHideTimer', enabled: false });
+                    broadcastToControllers({ type: 'setHideTimer', enabled: false });
                     broadcastToDisplays({ type: 'clearScheduledStart' });
                     break;
                     
@@ -313,18 +388,18 @@ wss.on('connection', (ws, req) => {
                         if (!ws.isStale) {
                             ws.isStale = true;
                             console.warn('Ignoring positions from a display running an outdated page - reload it');
-                            broadcastConnectionCount();
+                            broadcastConnectionCount(session);
                         }
                         break;
                     }
                     if (ws.isStale) {
                         ws.isStale = false;
-                        broadcastConnectionCount();
+                        broadcastConnectionCount(session);
                     }
                     if (Number.isFinite(data.ratio)) {
                         currentState.progressRatio = data.ratio;
-                        if (Date.now() - lastPositionSync > 1000) {
-                            lastPositionSync = Date.now();
+                        if (Date.now() - session.lastPositionSync > 1000) {
+                            session.lastPositionSync = Date.now();
                             // Displays reconcile in words, the controller's bar reads the
                             // ratio; both travel together so an old client still follows.
                             broadcastToDisplays({
@@ -381,10 +456,19 @@ wss.on('connection', (ws, req) => {
     });
     
     ws.on('close', () => {
-        clients.controllers.delete(ws);
-        clients.displays.delete(ws);
+        const session = ws.session;
+        if (session) {
+            session.controllers.delete(ws);
+            session.displays.delete(ws);
+            broadcastConnectionCount(session);
+            // Otherwise the map grows for the life of the server. The settings stay on
+            // disk, so reopening the same URL brings the session's name and language back.
+            if (!session.controllers.size && !session.displays.size) {
+                sessions.delete(session.id);
+                console.log(`Session ${session.id} closed`);
+            }
+        }
         console.log('WebSocket connection closed');
-        broadcastConnectionCount();
     });
     
     ws.on('error', (error) => {
@@ -393,62 +477,35 @@ wss.on('connection', (ws, req) => {
 });
 
 function handleRegistration(ws, data) {
+    const session = sessionFor(data.session);
+    ws.session = session;
+
     if (data.role === 'controller') {
-        clients.controllers.add(ws);
-        console.log('Controller registered');
-        
-        // Send current state to new controller
-        ws.send(JSON.stringify({
-            type: 'stateSync',
-            state: currentState
-        }));
-        
+        session.controllers.add(ws);
+        console.log(`Controller registered on session ${session.id}`);
     } else if (data.role === 'display' || data.role === 'preview') {
         // A preview is a real display client, it just should not show up as a device.
         ws.isPreview = data.preview === true || data.role === 'preview';
-        clients.displays.add(ws);
-        console.log(ws.isPreview ? 'Preview registered' : 'Display registered');
-        
-        // Send current state to new display
-        ws.send(JSON.stringify({
-            type: 'stateSync',
-            state: currentState
-        }));
+        session.displays.add(ws);
+        console.log(`${ws.isPreview ? 'Preview' : 'Display'} registered on session ${session.id}`);
+    } else {
+        return;
     }
-    
-    broadcastConnectionCount();
+
+    ws.send(JSON.stringify({
+        type: 'stateSync',
+        session: session.id,
+        state: session.state
+    }));
+    broadcastConnectionCount(session);
 }
 
-function broadcastToDisplays(message) {
-    const messageStr = JSON.stringify(message);
-    clients.displays.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(messageStr);
-        }
-    });
-}
-
-function broadcastToControllers(message) {
-    const messageStr = JSON.stringify(message);
-    clients.controllers.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(messageStr);
-        }
-    });
-}
-
-function broadcastConnectionCount() {
-    const connectionInfo = {
+function broadcastConnectionCount(session) {
+    sendTo([...session.controllers, ...session.displays], {
         type: 'connectionCount',
-        controllers: clients.controllers.size,
-        displays: [...clients.displays].filter((client) => !client.isPreview).length,
-        stale: [...clients.displays].filter((client) => client.isStale).length
-    };
-    
-    [...clients.controllers, ...clients.displays].forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(connectionInfo));
-        }
+        controllers: session.controllers.size,
+        displays: [...session.displays].filter((client) => !client.isPreview).length,
+        stale: [...session.displays].filter((client) => client.isStale).length
     });
 }
 
