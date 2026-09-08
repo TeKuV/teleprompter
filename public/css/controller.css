@@ -26,6 +26,9 @@ body {
 }
 
 .controller-header {
+    /* Container for the URL chips it holds: they drop their words when this bar,
+       not the viewport, runs short. */
+    container-type: inline-size;
     background: #2c3e50;
     color: white;
     padding: 20px;
@@ -37,14 +40,29 @@ body {
     flex-shrink: 0;
 }
 
+/* Title and status share the leftover space equally, which is what puts the chips
+   on the centre of the bar rather than on the centre of what is left over. */
 .controller-header h1 {
+    flex: 1 1 0;
     font-size: 24px;
     font-weight: 300;
+    white-space: nowrap;
+}
+
+.header-urls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    gap: 8px;
 }
 
 .connection-info {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    flex: 1 1 0;
     gap: 20px;
     flex-wrap: wrap;
 }
@@ -83,60 +101,6 @@ body {
 
 .device-count.disconnected {
     opacity: 0.55;
-}
-
-.connection-status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.status-indicator {
-    font-size: 16px;
-}
-
-.status-indicator.connected {
-    color: #27ae60;
-}
-
-.status-indicator.disconnected {
-    color: #e74c3c;
-}
-
-.status-indicator.connecting {
-    color: #f39c12;
-}
-
-.display-url {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-}
-
-/* An author display rule beats the browser's own [hidden], so hiding has to be said
-   again here - without it the phone remote row shows an empty dash when there is no
-   address to give. */
-.display-url[hidden] {
-    display: none;
-}
-
-.display-url label {
-    opacity: 0.8;
-}
-
-.display-url button {
-    padding: 4px 12px;
-    background: #34495e;
-    border: 1px solid #5a6c7d;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.display-url button:hover {
-    background: #4a5f7a;
 }
 
 .controller-content {
@@ -292,85 +256,6 @@ body {
     background: #d35400 !important;
 }
 
-.formatting-options {
-    margin-top: 15px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 6px;
-    border-left: 4px solid #e67e22;
-}
-
-.format-details {
-    margin-top: 10px;
-}
-
-.format-details summary {
-    cursor: pointer;
-    font-weight: 600;
-    color: #2c3e50;
-    padding: 5px 0;
-}
-
-.format-details summary:hover {
-    color: #e67e22;
-}
-
-.format-checkboxes {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 10px;
-    padding-left: 15px;
-}
-
-.format-checkboxes .checkbox-label {
-    font-size: 13px;
-    color: #555;
-}
-
-@media (max-width: 768px) {
-    .format-checkboxes {
-        grid-template-columns: 1fr;
-    }
-}
-
-.time-input-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 15px;
-}
-
-.time-input {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
-
-.time-input input {
-    width: 60px;
-    padding: 8px 6px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    text-align: center;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.time-input label {
-    font-size: 12px;
-    color: #666;
-    margin: 0;
-}
-
-.time-separator {
-    font-size: 24px;
-    font-weight: bold;
-    color: #2c3e50;
-    margin: 0 4px;
-}
-
 .scheduled-time-group {
     display: flex;
     gap: 10px;
@@ -390,63 +275,6 @@ body {
     font-size: 12px;
     color: #666;
     font-style: italic;
-}
-
-.checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: normal !important;
-    cursor: pointer;
-}
-
-.checkbox-label input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-}
-
-.duration-info {
-    margin-top: 12px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 6px;
-    font-size: 13px;
-    border-left: 4px solid #3498db;
-}
-
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.info-row:last-child {
-    margin-bottom: 0;
-}
-
-.duration-diff {
-    font-weight: bold;
-    border-top: 1px solid #ddd;
-    padding-top: 8px;
-    margin-top: 8px;
-}
-
-.duration-diff.positive {
-    color: #27ae60;
-}
-
-.duration-diff.negative {
-    color: #e74c3c;
-}
-
-.duration-diff.neutral {
-    color: #f39c12;
 }
 
 .text-preview {
@@ -798,16 +626,6 @@ body {
         max-width: 100%;
     }
 
-    .display-url {
-        flex-wrap: wrap;
-        gap: 6px;
-        min-width: 0;
-    }
-
-    #display-url {
-        overflow-wrap: anywhere;
-    }
-
     .controller-content {
         display: flex;
         flex-direction: column;
@@ -912,10 +730,6 @@ body {
         gap: 10px;
     }
 
-    .format-checkboxes {
-        grid-template-columns: 1fr;
-    }
-
     .file-options {
         gap: 6px;
     }
@@ -931,22 +745,6 @@ body {
 /* The two URLs are the way in for another machine, so they are controls, not labels:
    click one and its QR code opens. Buttons rather than spans, so a keyboard reaches
    them too. */
-.url-link {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    font: inherit;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    text-decoration-color: rgba(255, 255, 255, 0.35);
-    cursor: pointer;
-}
-
-.url-link:hover {
-    text-decoration-color: currentColor;
-}
-
 /* A closed dialog is hidden by the browser's own `dialog:not([open])` rule - and any
    author `display` beats it, so the flex layout below has to say it again or the modal
    sits open on the page from the first paint. */

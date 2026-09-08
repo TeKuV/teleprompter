@@ -394,19 +394,6 @@ body.preview .next-cue {
     opacity: 1;
 }
 
-/* Large text mode for better readability */
-.large-text #prompter-text {
-    font-size: 64px;
-}
-
-.medium-text #prompter-text {
-    font-size: 48px;
-}
-
-.small-text #prompter-text {
-    font-size: 32px;
-}
-
 /* Mirror mode for using with teleprompter hardware */
 .mirror-mode {
     transform: scaleX(-1);

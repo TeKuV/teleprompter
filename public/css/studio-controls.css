@@ -423,12 +423,14 @@
 }
 
 .editor-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    display: flex;
+    /* The URL block cannot shrink past its labels and Copy buttons, so nowrap made
+       the header overflow and the panel's overflow:hidden clipped the export button. */
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
-    padding: 16px 16px 0;
+    padding: 12px 16px 0;
     position: relative;
     z-index: 4;
 }
@@ -436,50 +438,119 @@
 .editor-header h3 {
     padding: 0;
     margin: 0;
-    flex-shrink: 0;
-    justify-self: start;
-}
-
-.editor-header-urls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    justify-self: center;
-    min-width: 0;
-    gap: 12px;
-}
-
-.editor-header-urls .display-url {
-    min-width: 0;
-    gap: 6px;
-    font-size: 12px;
-}
-
-.editor-header-urls .url-link {
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: 1 1 auto;
+    font-size: 16px;
+    line-height: 28px;
     white-space: nowrap;
+    margin-bottom: 8px;
+}
+
+/* The address itself, its QR and the copy action all live in the QR dialog, so the
+   header only needs a way in: one chip per destination. */
+.url-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.url-chip:hover {
+    background: var(--bg-hover);
+    color: var(--text-strong);
+}
+
+.url-chip:focus-visible {
+    outline: 2px solid var(--text-muted);
+    outline-offset: 2px;
+}
+
+/* An author display rule beats the browser's own [hidden]. */
+.url-chip[hidden] {
+    display: none;
+}
+
+.url-chip svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Carries the URL for the QR dialog and for screen readers, without spending
+   header width on a string nobody reads character by character. */
+.url-chip-value {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* French runs ~20% longer than English and pushes this row onto a second line.
+   The word goes, the icon and the accessible name stay. */
+@container (max-width: 620px) {
+    .url-chip > span:not(.url-chip-value) {
+        display: none;
+    }
+
+    .url-chip {
+        padding: 0 8px;
+    }
+}
+
+/* Stacked header: the chips get a row to themselves, so the words fit again.
+   Comes after the container query on purpose - same specificity, later wins. */
+@media (max-width: 900px) {
+    .url-chip > span:not(.url-chip-value) {
+        display: inline;
+    }
+
+    .url-chip {
+        padding: 0 10px;
+    }
 }
 
 .editor-header-actions {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
     justify-content: flex-end;
-    justify-self: end;
+    flex: 0 0 auto;
+    margin: 0;
     gap: 8px;
     margin-bottom: 8px;
 }
 
 .editor-header-actions button {
-    padding: 6px 12px;
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 12px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-strong);
     border-radius: 6px;
     color: var(--text);
     cursor: pointer;
     font-size: 13px;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 .editor-header-actions button:hover {
@@ -831,15 +902,10 @@
         height: 16px;
     }
 
-    /* The header's two export buttons crowd the title at this width. */
     .editor-header {
-        flex-wrap: wrap;
         gap: 8px;
         padding: 12px 12px 0;
-    }
-
-    .editor-header-actions {
-        margin-bottom: 0;
+        overflow-x: auto;
     }
 }
 

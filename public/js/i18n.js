@@ -17,9 +17,8 @@ const I18N = {
         'status.displays': 'Connected ({n} display{s}{stale})',
         'status.stale': ', {n} outdated - reload',
 
-        'header.displayUrl': 'Display URL:',
-        'header.openDisplay': 'Open display.html',
-        'header.controllerRemote': 'Controller remote:',
+        'header.display': 'Display',
+        'header.remote': 'Remote',
         'header.copy': 'Copy',
         'header.copied': 'Copied!',
         'header.otherAddresses': 'This machine is also on: {list}',
@@ -65,7 +64,6 @@ const I18N = {
 
         'editor.title': 'Script editor',
         'editor.exportTxt': 'Export TXT',
-        'editor.exportHtml': 'Export HTML',
 
         'playback.start': 'Start',
         'playback.pause': 'Pause',
@@ -136,9 +134,8 @@ const I18N = {
         'status.displays': 'Connecté ({n} écran{s}{stale})',
         'status.stale': ', {n} obsolète - à recharger',
 
-        'header.displayUrl': 'URL de l’écran :',
-        'header.openDisplay': 'Ouvrir display.html',
-        'header.controllerRemote': 'Télécommande :',
+        'header.display': 'Écran',
+        'header.remote': 'Télécommande',
         'header.copy': 'Copier',
         'header.copied': 'Copié !',
         'header.otherAddresses': 'Cette machine est aussi sur : {list}',
@@ -184,7 +181,6 @@ const I18N = {
 
         'editor.title': 'Éditeur de script',
         'editor.exportTxt': 'Exporter TXT',
-        'editor.exportHtml': 'Exporter HTML',
 
         'playback.start': 'Démarrer',
         'playback.pause': 'Pause',

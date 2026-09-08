@@ -125,43 +125,6 @@ button:disabled {
     cursor: not-allowed;
 }
 
-.duration-info {
-    margin-top: 12px;
-    padding: 12px;
-    background: #2a2a2a;
-    border-radius: 6px;
-    font-size: 13px;
-}
-
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
-}
-
-.info-row:last-child {
-    margin-bottom: 0;
-}
-
-.duration-diff {
-    font-weight: bold;
-    border-top: 1px solid #444;
-    padding-top: 8px;
-    margin-top: 8px;
-}
-
-.duration-diff.positive {
-    color: #28a745;
-}
-
-.duration-diff.negative {
-    color: #dc3545;
-}
-
-.duration-diff.neutral {
-    color: #ffc107;
-}
-
 .prompter-area {
     flex: 1;
     display: flex;

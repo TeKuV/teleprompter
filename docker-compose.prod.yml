@@ -20,5 +20,16 @@ services:
       # Session names and languages outlive the container they were written in.
       - prompter-data:/app/data
 
+    # server.js installs its own SIGTERM handler and hangs up the WebSocket clients
+    # before closing the server; this gives it room to finish rather than be killed.
+    stop_grace_period: 20s
+
+    # A prompter left running for weeks should not fill the disk with its own logs.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   prompter-data:

@@ -126,18 +126,6 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
-.controller-header .display-url button,
-.display-url button {
-    background: var(--bg-elevated);
-    border-color: var(--border-strong);
-    color: var(--text);
-}
-
-.controller-header .display-url button:hover,
-.display-url button:hover {
-    background: var(--bg-hover);
-}
-
 .controls-section,
 .control-panel,
 .controls-panel,
@@ -180,13 +168,11 @@ body {
     color: var(--text);
 }
 
-.formatting-options,
 .schedule-info {
     background: var(--bg-inset);
     color: var(--text-muted);
     border-color: var(--border);
 }
-
 
 .controls-panel {
     border-right-color: var(--border);
@@ -205,7 +191,6 @@ body {
     color: var(--text-muted);
 }
 
-
 .prompter-text-editable {
     background: var(--bg-inset);
     border-color: var(--border-strong);
@@ -213,9 +198,4 @@ body {
 
 .control-panel {
     border-top-color: var(--border);
-}
-
-.connection-status {
-    background: color-mix(in srgb, var(--bg-header) 88%, transparent);
-    color: var(--text);
 }

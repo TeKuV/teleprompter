@@ -135,10 +135,9 @@ class TeleprompterController {
         this.connectionStatus = document.getElementById('connection-status');
         this.deviceCountEl = document.getElementById('device-count');
         this.displayUrl = document.getElementById('display-url');
-        this.copyUrlBtn = document.getElementById('copy-url');
+        this.displayUrlBtn = document.getElementById('display-url-btn');
         this.lanUrlRow = document.getElementById('lan-url-row');
         this.lanUrl = document.getElementById('lan-url');
-        this.copyLanUrlBtn = document.getElementById('copy-lan-url');
         this.qrDialog = document.getElementById('qr-dialog');
         this.qrCode = document.getElementById('qr-code');
         this.qrUrl = document.getElementById('qr-url');
@@ -159,7 +158,6 @@ class TeleprompterController {
         this.readingLineThickness = document.getElementById('reading-line-thickness');
         this.readingLineSwatches = document.getElementById('reading-line-swatches');
         this.exportTxtBtn = document.getElementById('export-txt');
-        this.exportHtmlBtn = document.getElementById('export-html');
         this.progressBar = document.getElementById('script-progress');
         this.progressWrap = this.progressBar?.parentElement;
     }
@@ -167,8 +165,7 @@ class TeleprompterController {
     bindEvents() {
         this.fileUpload.addEventListener('change', (e) => this.handleFileUpload(e));
         this.clearBtn.addEventListener('click', () => this.clearText());
-        this.exportTxtBtn.addEventListener('click', () => this.exportScript('txt'));
-        this.exportHtmlBtn.addEventListener('click', () => this.exportScript('html'));
+        this.exportTxtBtn.addEventListener('click', () => this.exportScript());
         this.mirrorModeCheckbox.addEventListener('change', (e) => this.updateMirrorMode(e.target.checked));
         this.hideTimerCheckbox.addEventListener('change', (e) => this.updateHideTimer(e.target.checked));
         this.onAirModeCheckbox.addEventListener('change', (e) => this.updateOnAir(e.target.checked));
@@ -183,8 +180,6 @@ class TeleprompterController {
         this.playBtn.addEventListener('click', () => this.togglePlayback());
         this.bindHotkeys();
         this.resetBtn.addEventListener('click', () => this.reset());
-        this.copyUrlBtn.addEventListener('click', () => this.copyDisplayUrl());
-        this.copyLanUrlBtn?.addEventListener('click', () => this.copyLanUrl());
         this.bindQr();
         this.formatBtn.addEventListener('click', () => this.formatTextForTeleprompter());
         this.bindProgressBar();
@@ -260,14 +255,12 @@ class TeleprompterController {
         this.previewBadge.classList.toggle('is-live', this.isPlaying);
     }
 
-    exportScript(format) {
-        const isHtml = format === 'html';
-        const content = isHtml ? this.textPreview.innerHTML : (this.textPreview.innerText || '');
-        const blob = new Blob([content], { type: isHtml ? 'text/html;charset=utf-8' : 'text/plain;charset=utf-8' });
+    exportScript() {
+        const blob = new Blob([this.textPreview.innerText || ''], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `script.${isHtml ? 'html' : 'txt'}`;
+        link.download = 'script.txt';
         link.click();
         URL.revokeObjectURL(url);
     }
@@ -1329,12 +1322,10 @@ class TeleprompterController {
         this.displayUrl.textContent = displayUrl;
     }
     
-    // The address this page was opened on is by definition one that works from another
-    // machine - unless it is loopback. Asking the server is only worth it in that case,
-    // and a containerised server cannot answer: it sees its own bridge network, not the
-    // host's wifi, so its addresses reach nothing from a phone.
+    // Prefer a LAN address so a phone can open this controller. Loopback is still shown
+    // when that is all we have: hiding the row made the URL vanish on Docker/localhost.
     async updateLanUrl() {
-        if (!this.lanUrlRow) return;
+        if (!this.lanUrlRow || !this.lanUrl) return;
         const loopback = ['localhost', '127.0.0.1', '[::1]', '::1', ''];
         let host = loopback.includes(window.location.hostname) ? '' : window.location.host;
         let others = [];
@@ -1351,17 +1342,12 @@ class TeleprompterController {
                 /* older server, or no network */
             }
         }
-        if (!host) return;
+        if (!host) host = window.location.host;
 
         this.lanControllerUrl = `${window.location.protocol}//${host}/${this.sessionId}`;
         this.lanUrl.textContent = this.lanControllerUrl;
         if (others.length > 1) this.lanUrl.title = t('header.otherAddresses', { list: others.join(', ') });
         this.lanUrlRow.hidden = false;
-    }
-
-    copyLanUrl() {
-        if (!this.lanControllerUrl) return;
-        this.copyToClipboard(this.lanControllerUrl, this.copyLanUrlBtn);
     }
 
     // navigator.clipboard exists only in a secure context, and a studio runs this over
@@ -1370,6 +1356,7 @@ class TeleprompterController {
     // before any .catch could see it. The button simply did nothing.
     copyToClipboard(text, button) {
         const done = () => {
+            if (!button) return;
             button.textContent = t('header.copied');
             setTimeout(() => {
                 button.textContent = t('header.copy');
@@ -1403,8 +1390,8 @@ class TeleprompterController {
 
     bindQr() {
         if (!this.qrDialog) return;
-        this.displayUrl.addEventListener('click', () => this.showQr(this.displayUrl.textContent));
-        this.lanUrl?.addEventListener('click', () => {
+        this.displayUrlBtn?.addEventListener('click', () => this.showQr(this.displayUrl.textContent));
+        this.lanUrlRow?.addEventListener('click', () => {
             if (this.lanControllerUrl) this.showQr(this.lanControllerUrl);
         });
         this.qrCloseBtn.addEventListener('click', () => this.qrDialog.close());
@@ -1425,10 +1412,6 @@ class TeleprompterController {
         this.qrDialog.showModal();
     }
 
-    copyDisplayUrl() {
-        this.copyToClipboard(this.displayUrl.textContent, this.copyUrlBtn);
-    }
-    
     formatTextForTeleprompter() {
         const currentText = this.getEditorPlainText();
         if (!currentText.trim()) {

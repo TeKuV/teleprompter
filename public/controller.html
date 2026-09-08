@@ -16,6 +16,18 @@
     <div class="controller-container">
         <header class="controller-header">
             <h1>free Teleprompter</h1>
+            <div class="header-urls">
+                <button type="button" class="url-chip" id="display-url-btn" data-i18n-title="qr.title" data-i18n-aria="header.display">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    <span data-i18n="header.display">Display</span>
+                    <span class="url-chip-value" id="display-url"></span>
+                </button>
+                <button type="button" class="url-chip" id="lan-url-row" data-i18n-title="qr.title" data-i18n-aria="header.remote" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+                    <span data-i18n="header.remote">Remote</span>
+                    <span class="url-chip-value" id="lan-url"></span>
+                </button>
+            </div>
             <div class="connection-info">
                 <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="true" data-i18n-aria="theme.toggle" data-i18n-title="theme.toLight">
                     <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg>
@@ -124,21 +136,8 @@
             <div class="text-preview">
                 <div class="editor-header">
                     <h3 data-i18n="editor.title">Script editor</h3>
-                    <div class="editor-header-urls">
-                        <div class="display-url">
-                            <label data-i18n="header.displayUrl">Display URL:</label>
-                            <button type="button" class="url-link" id="display-url" data-i18n-title="qr.title">Open display.html</button>
-                            <button id="copy-url" data-i18n="header.copy">Copy</button>
-                        </div>
-                        <div class="display-url" id="lan-url-row" hidden>
-                            <label data-i18n="header.controllerRemote">Controller remote:</label>
-                            <button type="button" class="url-link" id="lan-url" data-i18n-title="qr.title">-</button>
-                            <button id="copy-lan-url" data-i18n="header.copy">Copy</button>
-                        </div>
-                    </div>
                     <div class="editor-header-actions">
                         <button type="button" id="export-txt" data-i18n="editor.exportTxt">Export TXT</button>
-                        <button type="button" id="export-html" data-i18n="editor.exportHtml">Export HTML</button>
                     </div>
                 </div>
                 <div class="editor-shell">
