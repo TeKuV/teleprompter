@@ -63,10 +63,25 @@ body {
 }
 
 .text-area {
+    --reading-arrow-inset: 18px;
+    --reading-arrow-gap: 12px;
+    --reading-arrow-gutter: calc(var(--reading-arrow-inset) + var(--reading-arrow-size, 28px) + var(--reading-arrow-gap));
+    --reading-safe-left: 0px;
+    --reading-safe-right: 0px;
     flex: 1;
     overflow: hidden;
     position: relative;
     background: #000;
+}
+
+.text-area[data-guide="arrow"][data-guide-side="left"],
+.text-area[data-guide="arrow"][data-guide-side="both"] {
+    --reading-safe-left: var(--reading-arrow-gutter);
+}
+
+.text-area[data-guide="arrow"][data-guide-side="right"],
+.text-area[data-guide="arrow"][data-guide-side="both"] {
+    --reading-safe-right: var(--reading-arrow-gutter);
 }
 
 .reading-line {
@@ -103,8 +118,44 @@ body {
     border-left: 0;
 }
 
+.reading-line[data-style="arrow"] {
+    height: 0;
+    background: none;
+    box-shadow: none;
+}
+
+.reading-line[data-style="arrow"]::before,
+.reading-line[data-style="arrow"]::after {
+    width: 0;
+    height: 0;
+    border: solid transparent;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--reading-line-color, #fff) 70%, transparent));
+}
+
+.reading-line[data-style="arrow"]::before {
+    left: var(--reading-arrow-inset, 18px);
+    border-width: calc(var(--reading-arrow-size, 28px) / 2) 0 calc(var(--reading-arrow-size, 28px) / 2) var(--reading-arrow-size, 28px);
+    border-color: transparent transparent transparent var(--reading-line-color, #ffffff);
+}
+
+.reading-line[data-style="arrow"]::after {
+    right: var(--reading-arrow-inset, 18px);
+    border-width: calc(var(--reading-arrow-size, 28px) / 2) var(--reading-arrow-size, 28px) calc(var(--reading-arrow-size, 28px) / 2) 0;
+    border-color: transparent var(--reading-line-color, #ffffff) transparent transparent;
+}
+
+.reading-line[data-style="arrow"][data-side="left"]::after,
+.reading-line[data-style="arrow"][data-side="right"]::before {
+    display: none;
+}
+
 #prompter-text {
-    padding: 40px;
+    --prompter-pad-y: 40px;
+    --prompter-pad-x: 40px;
+    padding: var(--prompter-pad-y)
+        calc(var(--prompter-pad-x) + var(--reading-safe-right, 0px))
+        var(--prompter-pad-y)
+        calc(var(--prompter-pad-x) + var(--reading-safe-left, 0px));
     font-size: 48px;
     line-height: 1.6;
     font-weight: 400;
@@ -360,8 +411,16 @@ body.preview .next-cue {
 }
 
 .status-indicator {
-    font-size: 20px;
+    display: inline-flex;
+    width: 10px;
+    height: 10px;
     margin-right: 8px;
+}
+
+.status-indicator svg {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 .status-indicator.connected {
@@ -402,7 +461,8 @@ body.preview .next-cue {
 @media (max-width: 768px) {
     #prompter-text {
         font-size: 32px;
-        padding: 20px;
+        --prompter-pad-y: 20px;
+        --prompter-pad-x: 20px;
     }
     
     .timer-display {
@@ -427,6 +487,16 @@ body.preview .next-cue {
     height: 3px;
     background: rgba(255, 255, 255, 0.16);
     z-index: 90;
+}
+
+.display-progress[data-position="top"] {
+    top: 0;
+    bottom: auto;
+}
+
+.display-progress[data-position="bottom"] {
+    top: auto;
+    bottom: 0;
 }
 
 .display-progress span {

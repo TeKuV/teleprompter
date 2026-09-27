@@ -1,0 +1,19 @@
+{
+    "name": "free Teleprompter — Controller",
+    "short_name": "Control",
+    "description": "Teleprompter operator panel — upload, format and drive the show.",
+    "start_url": "/main",
+    "scope": "/",
+    "id": "/main",
+    "display": "standalone",
+    "display_override": ["standalone"],
+    "orientation": "any",
+    "background_color": "#101010",
+    "theme_color": "#141414",
+    "lang": "en",
+    "icons": [
+        { "src": "icons/icon-controller-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "icons/icon-controller-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "icons/icon-controller-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

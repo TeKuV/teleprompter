@@ -4,25 +4,23 @@ const EditorToolbar = (() => {
         `<svg viewBox="0 0 24 24" aria-hidden="true" class="icon-stroke">${inner}</svg>`;
 
     const ICONS = {
-        ul: icon('<path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13"/>'),
-        ol: icon('<path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>'),
-        left: icon('<path d="M21 6H3M15 12H3M17 18H3"/>'),
-        center: icon('<path d="M21 6H3M17 12H7M19 18H5"/>'),
-        right: icon('<path d="M21 6H3M21 12H9M21 18H7"/>'),
-        justify: icon('<path d="M21 6H3M21 12H3M21 18H3"/>'),
-        smaller: icon('<path d="M3.5 13h6M2 16l4.5-9L11 16M18 7v9M14 12l4 4 4-4"/>'),
-        larger: icon('<path d="M3.5 13h6M2 16l4.5-9L11 16M18 16V7M14 11l4-4 4 4"/>'),
-        color: icon('<path d="M4 20h16M6 16l6-12 6 12M8.5 12h7"/>'),
-        highlight: icon('<path d="M9 11l-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>'),
-        bookmark: icon('<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>'),
-        clear: icon('<path d="M4 7V4h16v3M5 20h6M13 4L8 20M15 15l5 5M20 15l-5 5"/>'),
-        find: icon('<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>'),
-        undo: icon('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
-        redo: icon('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'),
-        mirror: icon('<path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 2v2M12 8v2M12 14v2M12 20v2"/>'),
-        prev: icon('<path d="M18 15l-6-6-6 6"/>'),
-        next: icon('<path d="M6 9l6 6 6-6"/>'),
-        close: icon('<path d="M18 6L6 18M6 6l12 12"/>')
+        ul: icon('<path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/>'),
+        ol: icon('<path d="M11 5h10"/><path d="M11 12h10"/><path d="M11 19h10"/><path d="M4 4h1v5"/><path d="M4 9h2"/><path d="M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02"/>'),
+        left: icon('<path d="M21 5H3"/><path d="M15 12H3"/><path d="M17 19H3"/>'),
+        center: icon('<path d="M21 5H3"/><path d="M17 12H7"/><path d="M19 19H5"/>'),
+        right: icon('<path d="M21 5H3"/><path d="M21 12H9"/><path d="M21 19H7"/>'),
+        justify: icon('<path d="M3 5h18"/><path d="M3 12h18"/><path d="M3 19h18"/>'),
+        color: icon('<path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/>'),
+        highlight: icon('<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>'),
+        bookmark: icon('<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>'),
+        clear: icon('<path d="M4 7V4h16v3"/><path d="M5 20h6"/><path d="M13 4 8 20"/><path d="m15 15 5 5"/><path d="m20 15-5 5"/>'),
+        find: icon('<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>'),
+        undo: icon('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>'),
+        redo: icon('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>'),
+        mirror: icon('<path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/><path d="M4 12H2"/><path d="M7.298 20.288A1 1 0 008 22h8a1 1 0 00.703-1.712l-3.991-3.99a1 1 0 00-1.424-.001z"/><path d="M7.298 3.712A1 1 0 018 2h8a1 1 0 01.703 1.712l-3.991 3.99a1 1 0 01-1.424.001z"/>'),
+        prev: icon('<path d="m18 15-6-6-6 6"/>'),
+        next: icon('<path d="m6 9 6 6 6-6"/>'),
+        close: icon('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>')
     };
 
     const GROUPS = [
@@ -43,10 +41,6 @@ const EditorToolbar = (() => {
             { cmd: 'justifyFull', title: 'Justify', icon: ICONS.justify, toggle: true }
         ],
         [
-            { cmd: 'smaller', title: 'Smaller text', icon: ICONS.smaller },
-            { cmd: 'larger', title: 'Larger text', icon: ICONS.larger }
-        ],
-        [
             { cmd: 'foreColor', title: 'Text color', icon: ICONS.color, color: true },
             { cmd: 'hiliteColor', title: 'Highlight', icon: ICONS.highlight, color: true }
         ],
@@ -60,9 +54,6 @@ const EditorToolbar = (() => {
         ]
     ];
 
-    const MIN_FONT_SIZE = 12;
-    const MAX_FONT_SIZE = 160;
-
     const TOGGLE_CMDS = new Set([
         'bold', 'italic', 'underline', 'strikeThrough',
         'insertUnorderedList', 'insertOrderedList',
@@ -70,12 +61,11 @@ const EditorToolbar = (() => {
     ]);
 
     class EditorToolbar {
-        constructor({ editor, toolbar, findBar, onChange, onFontSize }) {
+        constructor({ editor, toolbar, findBar, onChange }) {
             this.editor = editor;
             this.toolbar = toolbar;
             this.findBar = findBar;
             this.onChange = onChange || (() => {});
-            this.onFontSize = onFontSize || (() => {});
             this.enabled = true;
             this.matches = [];
             this.matchIndex = -1;
@@ -150,9 +140,8 @@ const EditorToolbar = (() => {
             });
 
             this.toolbar.addEventListener('input', (e) => {
-                const input = e.target.closest('input[type="color"]');
-                if (!input || !this.enabled) return;
-                this.exec(input.dataset.colorCmd, input.value);
+                const color = e.target.closest('input[type="color"]');
+                if (color && this.enabled) this.exec(color.dataset.colorCmd, color.value);
             });
 
             this.findBar.addEventListener('mousedown', (e) => {
@@ -223,14 +212,6 @@ const EditorToolbar = (() => {
                 this.insertBookmark();
                 return;
             }
-            if (cmd === 'smaller') {
-                this.adjustFontSize(-2);
-                return;
-            }
-            if (cmd === 'larger') {
-                this.adjustFontSize(2);
-                return;
-            }
             this.exec(cmd);
         }
 
@@ -256,14 +237,6 @@ const EditorToolbar = (() => {
             document.execCommand('styleWithCSS', false, true);
             document.execCommand(command, false, value);
             this.syncActive();
-            this.onChange();
-        }
-
-        adjustFontSize(delta) {
-            const current = parseFloat(this.editor.style.fontSize) || parseFloat(window.getComputedStyle(this.editor).fontSize) || 16;
-            const next = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(current + delta)));
-            this.editor.style.fontSize = `${next}px`;
-            this.onFontSize(next);
             this.onChange();
         }
 

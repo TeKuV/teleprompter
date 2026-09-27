@@ -183,6 +183,19 @@
     stroke-linejoin: round;
 }
 
+.display-toggles .display-toggle:has(#mirror-mode) svg {
+    transform: rotate(90deg);
+}
+
+#reading-line-btn [data-guide-icon] {
+    display: none;
+}
+
+#reading-line-btn[data-guide="line"] [data-guide-icon="line"],
+#reading-line-btn[data-guide="arrow"] [data-guide-icon="arrow"] {
+    display: block;
+}
+
 .display-toggles .display-toggle:hover {
     background: var(--bg-hover);
     color: var(--text-strong);
@@ -243,6 +256,62 @@
     color: var(--text-strong);
 }
 
+.reading-style-picker {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    z-index: 51;
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    box-shadow: var(--shadow);
+}
+
+.reading-style-picker[hidden] {
+    display: none;
+}
+
+.reading-style-choice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 92px;
+    padding: 12px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-elevated);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.reading-style-choice svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.reading-style-choice:hover {
+    background: var(--bg-hover);
+    color: var(--text-strong);
+}
+
+.reading-style-choice.is-active {
+    background: var(--active-bg);
+    border-color: var(--active-bg);
+    color: var(--active-fg);
+}
+
 .reading-line-panel {
     position: absolute;
     right: 0;
@@ -260,6 +329,17 @@
     display: none;
 }
 
+.reading-line-empty {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.reading-line-empty[hidden] {
+    display: none;
+}
+
 .reading-line-field {
     display: flex;
     flex-direction: column;
@@ -268,6 +348,10 @@
     color: var(--text);
     font-size: 12px;
     font-weight: 600;
+}
+
+.reading-line-field[hidden] {
+    display: none;
 }
 
 .reading-line-field:last-child {
@@ -307,6 +391,89 @@
 
 .reading-line-swatches button.is-active {
     box-shadow: 0 0 0 2px var(--text-strong);
+}
+
+.reading-side {
+    display: flex;
+    gap: 4px;
+}
+
+.reading-side button {
+    flex: 1;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.reading-side button:hover {
+    background: var(--bg-hover);
+    color: var(--text-strong);
+}
+
+.reading-side button.is-active {
+    background: var(--active-bg);
+    border-color: var(--active-bg);
+    color: var(--active-fg);
+}
+
+.reading-popup-scrim {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    .control-panel:has(#reading-line-panel:not([hidden])),
+    .control-panel:has(#reading-style-picker:not([hidden])) {
+        z-index: 80;
+    }
+
+    .reading-popup-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: rgba(0, 0, 0, 0.55);
+        cursor: pointer;
+    }
+
+    .reading-popup-scrim:not([hidden]) {
+        display: block;
+    }
+
+    .reading-line-panel,
+    .reading-style-picker:not([hidden]) {
+        position: fixed;
+        left: 50%;
+        right: auto;
+        top: auto;
+        bottom: max(72px, 12dvh);
+        z-index: 80;
+        width: min(360px, calc(100vw - 32px));
+        max-width: calc(100vw - 32px);
+        max-height: min(62dvh, calc(100dvh - 96px));
+        overflow: auto;
+        transform: translateX(-50%);
+    }
+
+    .reading-style-picker:not([hidden]) {
+        display: flex;
+        justify-content: stretch;
+    }
+
+    .reading-style-choice {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+        padding: 12px 6px;
+    }
 }
 
 .live-preview-head {
@@ -354,6 +521,9 @@
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+    /* flip-horizontal-2 read as a horizontal flip icon at rest; rotated 90deg it
+       reads as the app's mirror action instead, without touching the path data. */
+    transform: rotate(90deg);
 }
 
 .live-preview-mirror:hover {
@@ -424,9 +594,7 @@
 
 .editor-header {
     display: flex;
-    /* The URL block cannot shrink past its labels and Copy buttons, so nowrap made
-       the header overflow and the panel's overflow:hidden clipped the export button. */
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
@@ -438,11 +606,10 @@
 .editor-header h3 {
     padding: 0;
     margin: 0;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     font-size: 16px;
     line-height: 28px;
     white-space: nowrap;
-    margin-bottom: 8px;
 }
 
 /* The address itself, its QR and the copy action all live in the QR dialog, so the
@@ -533,10 +700,10 @@
     align-items: center;
     justify-content: flex-end;
     flex: 0 0 auto;
-    margin: 0;
+    margin: 0 0 8px auto;
     gap: 8px;
-    margin-bottom: 8px;
 }
+
 
 .editor-header-actions button {
     display: inline-flex;
@@ -566,6 +733,9 @@
 .editor-format-btn {
     display: inline-flex;
     align-items: center;
+    /* Keeps the label centred even when min-width or asymmetric padding leaves the
+       button wider than its own content. */
+    justify-content: center;
     gap: 6px;
     padding: 8px 14px;
     border: 1px solid var(--border-strong);
@@ -647,6 +817,29 @@
     cursor: pointer;
 }
 
+.format-apply-control .editor-format-btn {
+    background: #e67e22;
+    border-color: #e67e22;
+    color: #fff;
+}
+
+.format-apply-control .editor-format-btn:hover {
+    background: #d35400;
+    border-color: #d35400;
+    color: #fff;
+}
+
+.format-apply-control .editor-format-settings,
+.format-apply-control .editor-format-settings:hover,
+.format-apply-control .editor-format-settings[aria-expanded="true"] {
+    background: transparent;
+}
+
+.format-apply-control .editor-format-panel {
+    left: auto;
+    right: 0;
+}
+
 .editor-shell {
     display: flex;
     flex-direction: column;
@@ -682,6 +875,76 @@
 
 .toolbar-group:last-child {
     border-right: 0;
+}
+
+.editor-type {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 16px;
+}
+
+.editor-type .toolbar-metric {
+    height: 32px;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.editor-type .toolbar-metric-input {
+    width: 4em;
+    height: 30px;
+    font-size: 13px;
+}
+
+.editor-type .toolbar-metric-unit {
+    font-size: 11px;
+}
+
+.toolbar-metric {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 32px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: default;
+}
+
+.toolbar-metric-input {
+    width: 3.6em;
+    height: 26px;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg-input);
+    color: var(--text-strong);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.toolbar-metric-input::-webkit-outer-spin-button,
+.toolbar-metric-input::-webkit-inner-spin-button {
+    height: 20px;
+}
+
+.toolbar-metric-input:focus {
+    outline: none;
+    border-color: var(--border-strong);
+    color: var(--text-strong);
+}
+
+.toolbar-metric-unit {
+    font-size: 10px;
+    font-weight: 700;
+    opacity: 0.65;
+    min-width: 1.1em;
 }
 
 .toolbar-btn {
@@ -721,6 +984,10 @@
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+.toolbar-btn[data-cmd="mirror"] svg {
+    transform: rotate(90deg);
 }
 
 .toolbar-btn-text {
@@ -803,7 +1070,7 @@
     background: var(--bg-input);
     color: var(--text-strong);
     text-align: center;
-    line-height: 1.7;
+    line-height: 1.6;
 }
 
 .editor-shell #text-preview:focus {
@@ -1002,6 +1269,20 @@
     font-weight: 400;
 }
 
+.settings-field input[type="file"] {
+    height: auto;
+    min-height: 48px;
+    padding: 12px;
+    border-width: 2px;
+    border-style: dashed;
+    cursor: pointer;
+}
+
+.settings-field input[type="file"]:hover {
+    border-color: var(--text-muted);
+    background: var(--bg-hover);
+}
+
 .settings-actions {
     display: flex;
     justify-content: flex-end;
@@ -1046,4 +1327,32 @@
     margin: 0;
     accent-color: var(--active-bg);
     cursor: pointer;
+}
+/* Title, size/leading controls and Export TXT all need their own room; the French
+   labels push the natural single-row minimum to ~544px, so below that they can't
+   share one row without the size/leading fields getting crushed under their own
+   content (that's the overlap this fixes). Title and Export stay paired on row one
+   - both short and always fit - and the metrics drop to a row of their own where
+   they get the full width back. Placed at the end of the file on purpose: it has to
+   come after .editor-type's own "flex: 1 1 auto" rule (same specificity - source
+   order decides) or that rule wins back the row at every width. */
+@media (max-width: 600px) {
+    .editor-header {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    .editor-header h3 {
+        flex: 1 1 auto;
+    }
+
+    .editor-header-actions {
+        margin-bottom: 0;
+    }
+
+    .editor-type {
+        order: 3;
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
 }

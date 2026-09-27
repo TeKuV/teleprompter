@@ -239,18 +239,29 @@ on it, so anything edited on the server is discarded.
 
 ### Repository secrets
 
+These belong on the `production` environment (the deploy job uses it). The `VPS_*`
+names still work if that is what you already created.
+
 | Secret | |
 |---|---|
-| `VPS_HOST` | address of the server |
-| `VPS_USER` | the account that owns the checkout and can reach Docker |
-| `VPS_SSH_KEY` | private key, whose public half is in that account's `authorized_keys` |
-| `VPS_HOST_KEY` | output of `ssh-keyscan <host>`, so the runner recognises the machine |
-| `VPS_PORT` | optional, defaults to 22 |
-| `VPS_PATH` | optional, defaults to `/opt/freeprompter` |
+| `SSH_HOST` | address the runner sshes to (same host you keyscan) |
+| `SSH_USER` | the account that owns the checkout and can reach Docker |
+| `SSH_KEY` | private key, whose public half is in that account's `authorized_keys` |
+| `SSH_HOST_KEY` | full output of `ssh-keyscan -p <port> <host>` — hostname + type + key |
+| `SSH_PORT` | optional, defaults to 22 |
+| `SSH_PATH` | optional, defaults to `/opt/freeprompter` |
 | `HEALTH_URL` | optional, what the post-deploy check asks for |
 
-The host key is pinned on purpose. `StrictHostKeyChecking=no` would make the runner accept
-whatever answers at that address, which is the whole of the attack it is meant to prevent.
+`SSH_HOST_KEY` is the usual failure. Empty, a public key without the hostname, or a
+keyscan of `example.com` while `SSH_HOST` is an IP, all become `Host key verification
+failed`. From a machine that can reach the VPS:
+
+```bash
+ssh-keyscan -p 22 YOUR_HOST
+```
+
+Paste every line. Do not set `StrictHostKeyChecking=no`: that would accept whoever
+answers at that address.
 
 ### What production changes
 

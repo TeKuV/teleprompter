@@ -100,26 +100,66 @@ jobs:
       # No third-party action here: this step holds a key to the server, and the whole of
       # what it needs is ssh, which the runner already has.
       - name: Load the deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.SSH_KEY || secrets.VPS_SSH_KEY }}
+          HOST_KEY: ${{ secrets.SSH_HOST_KEY || secrets.VPS_HOST_KEY }}
+          DEPLOY_HOST: ${{ secrets.SSH_HOST || secrets.VPS_HOST }}
+          DEPLOY_USER: ${{ secrets.SSH_USER || secrets.VPS_USER }}
+          DEPLOY_PORT: ${{ secrets.SSH_PORT || secrets.VPS_PORT || 22 }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          : "${DEPLOY_KEY:?set the SSH_KEY secret}"
+          : "${DEPLOY_HOST:?set the SSH_HOST secret}"
+          : "${DEPLOY_USER:?set the SSH_USER secret}"
+          : "${HOST_KEY:?set SSH_HOST_KEY to the output of: ssh-keyscan -p $DEPLOY_PORT $DEPLOY_HOST}"
+
+          printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          # Pinned rather than trusted on first use: StrictHostKeyChecking=no would accept
-          # whatever answers on that address, which is the whole of the attack.
-          echo "${{ secrets.SSH_HOST_KEY }}" > ~/.ssh/known_hosts
+
+          # Pin the key to the host:port we will actually call. A keyscan of the
+          # hostname will not match an IP (or a non-22 port) and OpenSSH then
+          # reports only "Host key verification failed".
+          marker="$DEPLOY_HOST"
+          [ "$DEPLOY_PORT" = "22" ] || marker="[$DEPLOY_HOST]:$DEPLOY_PORT"
+          : > ~/.ssh/known_hosts
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            case "$line" in ''|\#*) continue ;; esac
+            if [[ "$line" =~ (ssh-[a-z0-9-]+|ecdsa-sha2-nistp[0-9]+|sk-ssh-[^[:space:]]+)[[:space:]]+([A-Za-z0-9+/=]+) ]]; then
+              printf '%s %s %s\n' "$marker" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" >> ~/.ssh/known_hosts
+            fi
+          done <<< "$HOST_KEY"
+          grep -qE 'ssh-|ecdsa-' ~/.ssh/known_hosts || {
+            echo "SSH_HOST_KEY has no usable host key. On a machine that can reach the VPS:"
+            echo "  ssh-keyscan -p $DEPLOY_PORT $DEPLOY_HOST"
+            echo "Paste the full output as the SSH_HOST_KEY (or VPS_HOST_KEY) secret."
+            exit 1
+          }
+
+          printf '%s\n' \
+            "Host deploy" \
+            "  HostName $DEPLOY_HOST" \
+            "  User $DEPLOY_USER" \
+            "  Port $DEPLOY_PORT" \
+            "  IdentityFile ~/.ssh/id_deploy" \
+            "  IdentitiesOnly yes" \
+            "  UserKnownHostsFile ~/.ssh/known_hosts" \
+            "  StrictHostKeyChecking yes" \
+            > ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Deploy
         env:
           # Not HOST/USER/PORT: those already mean something in the runner's shell, and an
           # empty secret would quietly ssh to the runner's own account instead of failing.
-          DEPLOY_HOST: ${{ secrets.SSH_HOST }}
-          DEPLOY_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PORT: ${{ secrets.SSH_PORT || 22 }}
-          APP_PATH: ${{ secrets.SSH_PATH || '/opt/freeprompter' }}
+          DEPLOY_HOST: ${{ secrets.SSH_HOST || secrets.VPS_HOST }}
+          DEPLOY_USER: ${{ secrets.SSH_USER || secrets.VPS_USER }}
+          DEPLOY_PORT: ${{ secrets.SSH_PORT || secrets.VPS_PORT || 22 }}
+          APP_PATH: ${{ secrets.SSH_PATH || secrets.VPS_PATH || '/opt/freeprompter' }}
         run: |
           : "${DEPLOY_HOST:?set the SSH_HOST secret}"
           : "${DEPLOY_USER:?set the SSH_USER secret}"
-          ssh -i ~/.ssh/id_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -euo pipefail <<EOF
+          ssh -F ~/.ssh/config deploy bash -euo pipefail <<EOF
             cd "$APP_PATH"
             git fetch --prune origin main
             # The checkout is a deploy target, not a workspace: it matches the branch or
@@ -132,10 +172,7 @@ jobs:
       - name: It is actually answering
         env:
           HEALTH_URL: ${{ secrets.HEALTH_URL || 'http://127.0.0.1:8080/controller.html' }}
-          DEPLOY_HOST: ${{ secrets.SSH_HOST }}
-          DEPLOY_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PORT: ${{ secrets.SSH_PORT || 22 }}
         run: |
           # "docker compose up" returning 0 only means the container started. Ask the app.
-          ssh -i ~/.ssh/id_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+          ssh -F ~/.ssh/config deploy \
             "for i in \$(seq 1 20); do curl -fs -o /dev/null '$HEALTH_URL' && exit 0; sleep 1; done; exit 1"

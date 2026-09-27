@@ -5,9 +5,24 @@
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>free Teleprompter</title>
+    <!-- Installable as its own app: a shortcut that opens straight to the operator
+         panel, no address bar. Its start_url is /main, not /: a bare load here mints a
+         brand new random session (see currentSessionId() below) and would open on an
+         empty, disconnected show every launch. /main is the one stable, named session -
+         the same one display.html falls back to with no session in its own URL, so the
+         two installed shortcuts are paired out of the box. See manifest-display.json for
+         the screen's own shortcut. -->
+    <link rel="manifest" href="manifest-controller.json">
+    <meta name="theme-color" content="#141414">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon-controller.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Control">
     <script src="js/i18n.js"></script>
     <script src="js/qrcode.js"></script>
     <script src="js/theme.js"></script>
+    <script src="js/pwa.js"></script>
     <link rel="stylesheet" href="css/controller.css">
     <link rel="stylesheet" href="css/studio-controls.css">
     <link rel="stylesheet" href="css/theme.css">
@@ -18,29 +33,25 @@
             <h1>free Teleprompter</h1>
             <div class="header-urls">
                 <button type="button" class="url-chip" id="display-url-btn" data-i18n-title="qr.title" data-i18n-aria="header.display">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
                     <span data-i18n="header.display">Display</span>
                     <span class="url-chip-value" id="display-url"></span>
                 </button>
                 <button type="button" class="url-chip" id="lan-url-row" data-i18n-title="qr.title" data-i18n-aria="header.remote" hidden>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
                     <span data-i18n="header.remote">Remote</span>
                     <span class="url-chip-value" id="lan-url"></span>
                 </button>
             </div>
             <div class="connection-info">
                 <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="true" data-i18n-aria="theme.toggle" data-i18n-title="theme.toLight">
-                    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg>
+                    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
                     <span class="theme-toggle-track"><span class="theme-toggle-thumb"></span></span>
-                    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13a6 6 0 1 1-5-9 7 7 0 1 0 5 9z"/></svg>
+                    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
                     <span class="theme-toggle-text" data-theme-label>Dark</span>
                 </button>
                 <div class="device-count disconnected" id="connection-status" title="Disconnected">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="2" y="4" width="13" height="10" rx="1.5"/>
-                        <path d="M6 17h5"/>
-                        <rect x="13" y="10" width="9" height="11" rx="1.5"/>
-                    </svg>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8"/><path d="M10 19v-3.96 3.15"/><path d="M7 19h5"/><rect width="6" height="10" x="16" y="12" rx="2"/></svg>
                     <span class="device-count-n" id="device-count">0</span>
                 </div>
             </div>
@@ -53,7 +64,7 @@
                         <label data-i18n="preview.title">Live Preview</label>
                         <div class="live-preview-actions">
                             <button type="button" class="live-preview-mirror" id="preview-mirror" aria-pressed="false" data-i18n-title="preview.mirrorTitle">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 2v2M12 8v2M12 14v2M12 20v2"/></svg>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/><path d="M4 12H2"/><path d="M7.298 20.288A1 1 0 008 22h8a1 1 0 00.703-1.712l-3.991-3.99a1 1 0 00-1.424-.001z"/><path d="M7.298 3.712A1 1 0 018 2h8a1 1 0 01.703 1.712l-3.991 3.99a1 1 0 01-1.424.001z"/></svg>
                                 <span data-i18n="preview.mirror">Mirror</span>
                             </button>
                             <span class="live-preview-badge" id="preview-badge" data-i18n="preview.paused">PAUSED</span>
@@ -68,37 +79,37 @@
 
                 <div class="controls-scroll">
                 <div class="control-group">
-                    <label for="file-upload" data-i18n="upload.label">Upload Manuscript:</label>
-                    <input type="file" id="file-upload" accept=".txt,.docx,.pdf">
                     <div class="file-options">
-                        <div class="editor-format-control" id="formatting-options">
-                            <button type="button" class="editor-format-btn" id="auto-format" aria-pressed="true" data-i18n-title="upload.auto">
-                                <span data-i18n="upload.format">Format Upload</span>
+                        <button type="button" class="editor-format-btn" id="upload-btn" data-i18n-title="upload.modalTitle">
+                            <span data-i18n="upload.label">Upload manuscript</span>
+                        </button>
+                        <button id="clear-text" data-i18n="upload.clear" class="outline-btn">Clear</button>
+                        <div class="editor-format-control format-apply-control">
+                            <button type="button" class="editor-format-btn format-btn" id="format-text">
+                                <span data-i18n="upload.formatBtn">Format for Teleprompter</span>
                             </button>
-                            <button type="button" class="editor-format-settings" id="format-settings" aria-expanded="false" aria-controls="format-panel" data-i18n-title="upload.formatTitle">
+                            <button type="button" class="editor-format-settings" id="format-apply-settings" aria-expanded="false" aria-controls="format-apply-panel" data-i18n-title="upload.formatTitle">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                             </button>
-                            <div class="editor-format-panel" id="format-panel" hidden>
+                            <div class="editor-format-panel" id="format-apply-panel" hidden>
                                 <label class="editor-format-option">
-                                    <input type="checkbox" id="format-caps" checked>
+                                    <input type="checkbox" data-format-flag="caps" checked>
                                     <span data-i18n="upload.caps">Convert to UPPERCASE</span>
                                 </label>
                                 <label class="editor-format-option">
-                                    <input type="checkbox" id="format-sentences" checked>
+                                    <input type="checkbox" data-format-flag="sentences" checked>
                                     <span data-i18n="upload.sentences">One sentence per line</span>
                                 </label>
                                 <label class="editor-format-option">
-                                    <input type="checkbox" id="format-paragraphs" checked>
+                                    <input type="checkbox" data-format-flag="paragraphs" checked>
                                     <span data-i18n="upload.paragraphs">Add paragraph breaks</span>
                                 </label>
                                 <label class="editor-format-option">
-                                    <input type="checkbox" id="format-punctuation" checked>
+                                    <input type="checkbox" data-format-flag="punctuation" checked>
                                     <span data-i18n="upload.punctuation">Enhance punctuation pauses</span>
                                 </label>
                             </div>
                         </div>
-                        <button id="clear-text" data-i18n="upload.clear" class="outline-btn">Clear</button>
-                        <button id="format-text" class="format-btn" data-i18n="upload.formatBtn">Format for Teleprompter</button>
                     </div>
                 </div>
                 
@@ -136,6 +147,18 @@
             <div class="text-preview">
                 <div class="editor-header">
                     <h3 data-i18n="editor.title">Script editor</h3>
+                    <div class="editor-type" id="editor-type">
+                        <label class="toolbar-metric" data-i18n-title="editor.fontSizeTitle">
+                            <span data-i18n="editor.fontSize">Size</span>
+                            <input type="number" class="toolbar-metric-input" id="display-font-size" min="12" max="160" step="1" value="48" data-i18n-aria="editor.fontSizeTitle">
+                            <span class="toolbar-metric-unit">px</span>
+                        </label>
+                        <label class="toolbar-metric" data-i18n-title="editor.lineHeightTitle">
+                            <span data-i18n="editor.lineHeight">Leading</span>
+                            <input type="number" class="toolbar-metric-input" id="display-line-height" min="1" max="4" step="0.1" value="1.6" data-i18n-aria="editor.lineHeightTitle">
+                            <span class="toolbar-metric-unit">×</span>
+                        </label>
+                    </div>
                     <div class="editor-header-actions">
                         <button type="button" id="export-txt" data-i18n="editor.exportTxt">Export TXT</button>
                     </div>
@@ -161,11 +184,17 @@
             <div class="control-panel-main">
             <div class="playback-controls">
                 <button type="button" id="play-btn" class="control-btn start" aria-pressed="false" aria-label="Start">
-                    <span class="btn-icon" data-play-icon>▶</span>
+                    <span class="btn-icon" data-play-icon data-glyph="play">
+                        <svg data-play="play" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
+                        <svg data-play="pause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect width="5" height="18" x="14" y="3" rx="1"/><rect width="5" height="18" x="5" y="3" rx="1"/></g></svg>
+                        <span data-play="count"></span>
+                    </span>
                     <span data-play-label data-i18n="playback.start">Start</span>
                 </button>
                 <button id="reset-btn" class="control-btn reset">
-                    <span class="btn-icon">⏹</span>
+                    <span class="btn-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                    </span>
                     <span data-i18n="playback.reset">Reset</span>
                 </button>
             </div>
@@ -173,37 +202,66 @@
             <div class="display-toggles" role="group" data-i18n-aria="playback.options">
                 <label class="display-toggle" data-i18n-title="playback.mirrorTitle">
                     <input type="checkbox" id="mirror-mode" tabindex="-1">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 2v2M12 8v2M12 14v2M12 20v2"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/><path d="M4 12H2"/><path d="M7.298 20.288A1 1 0 008 22h8a1 1 0 00.703-1.712l-3.991-3.99a1 1 0 00-1.424-.001z"/><path d="M7.298 3.712A1 1 0 018 2h8a1 1 0 01.703 1.712l-3.991 3.99a1 1 0 01-1.424.001z"/></svg>
                     <span data-i18n="playback.mirror">Mirror</span>
                 </label>
                 <label class="display-toggle" data-i18n-title="playback.timerTitle">
                     <input type="checkbox" id="hide-timer" tabindex="-1">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                     <span data-i18n="playback.timer">Timer</span>
                 </label>
                 <label class="display-toggle" data-i18n-title="playback.onAirTitle">
                     <input type="checkbox" id="on-air-mode" tabindex="-1">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2M7.8 16.2a6 6 0 0 1 0-8.4"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.247 7.761a6 6 0 0 1 0 8.478"/><path d="M19.075 4.933a10 10 0 0 1 0 14.134"/><path d="M4.925 19.067a10 10 0 0 1 0-14.134"/><path d="M7.753 16.239a6 6 0 0 1 0-8.478"/><circle cx="12" cy="12" r="2"/></svg>
                     <span data-i18n="playback.onAir">On air</span>
                 </label>
                 <div class="display-line-control">
-                    <button type="button" class="display-toggle" id="reading-line-btn" aria-pressed="false" data-i18n-title="playback.lineTitle">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M7 9v6M17 9v6"/></svg>
-                        <span data-i18n="playback.line">Line</span>
+                    <button type="button" class="display-toggle" id="reading-line-btn" data-guide="line" aria-pressed="false" aria-haspopup="true" aria-expanded="false" data-i18n-title="playback.guideTitle">
+                        <svg data-guide-icon="line" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M7 9v6M17 9v6"/></svg>
+                        <svg data-guide-icon="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        <span id="reading-guide-label" data-i18n="playback.line">Line</span>
                     </button>
-                    <button type="button" class="display-line-settings" id="reading-line-settings" aria-expanded="false" aria-controls="reading-line-panel" data-i18n-title="playback.lineSettings">
+                    <button type="button" class="display-line-settings" id="reading-line-settings" aria-expanded="false" aria-controls="reading-line-panel" data-i18n-title="playback.guideSettings">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
+                    <div class="reading-style-picker" id="reading-style-picker" hidden>
+                        <button type="button" class="reading-style-choice is-active" data-style="none">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+                            <span data-i18n="playback.guideNone">None</span>
+                        </button>
+                        <button type="button" class="reading-style-choice" data-style="line">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M7 9v6M17 9v6"/></svg>
+                            <span data-i18n="playback.line">Line</span>
+                        </button>
+                        <button type="button" class="reading-style-choice" data-style="arrow">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                            <span data-i18n="playback.arrow">Arrow</span>
+                        </button>
+                    </div>
+                    <button type="button" class="reading-popup-scrim" id="reading-popup-scrim" hidden tabindex="-1" data-i18n-aria="settings.closeLabel"></button>
                     <div class="reading-line-panel" id="reading-line-panel" hidden>
-                        <label class="reading-line-field">
+                        <p class="reading-line-empty" data-guide="none" data-i18n="playback.guideNoneHint">No reading guide</p>
+                        <label class="reading-line-field" data-guide="line arrow">
                             <span><span data-i18n="playback.position">Position</span> <strong id="reading-line-pos-label">50%</strong></span>
                             <input type="range" id="reading-line-position" min="20" max="80" step="1" value="50">
                         </label>
-                        <label class="reading-line-field">
+                        <label class="reading-line-field" data-guide="line">
                             <span><span data-i18n="playback.thickness">Thickness</span> <strong id="reading-line-thick-label">2px</strong></span>
                             <input type="range" id="reading-line-thickness" min="1" max="8" step="1" value="2">
                         </label>
-                        <div class="reading-line-field">
+                        <label class="reading-line-field" data-guide="arrow">
+                            <span><span data-i18n="playback.size">Size</span> <strong id="reading-arrow-size-label">28px</strong></span>
+                            <input type="range" id="reading-arrow-size" min="16" max="56" step="2" value="28">
+                        </label>
+                        <div class="reading-line-field" data-guide="arrow">
+                            <span data-i18n="playback.side">Side</span>
+                            <div class="reading-side" id="reading-arrow-side">
+                                <button type="button" data-side="left" data-i18n="playback.sideLeft">Left</button>
+                                <button type="button" data-side="right" data-i18n="playback.sideRight">Right</button>
+                                <button type="button" data-side="both" data-i18n="playback.sideBoth">Both</button>
+                            </div>
+                        </div>
+                        <div class="reading-line-field" data-guide="line arrow">
                             <span data-i18n="playback.color">Color</span>
                             <div class="reading-line-swatches" id="reading-line-swatches">
                                 <button type="button" class="is-active" data-color="#ffffff" data-i18n-aria="playback.white"></button>
@@ -215,15 +273,15 @@
                     </div>
                 </div>
                 <button type="button" class="display-toggle" id="voice-track" aria-pressed="false" data-i18n-title="playback.voiceTitle">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg>
                     <span data-i18n="playback.voice">Voice</span>
                 </button>
                 <button type="button" class="display-toggle" id="fullscreen-display" aria-pressed="false" data-i18n-title="playback.fullscreenTitle">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                     <span data-i18n="playback.fullscreen">Fullscreen</span>
                 </button>
                 <button type="button" class="display-toggle" id="settings-open" data-i18n-title="settings.title">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.4-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.5 1H23a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
                     <span data-i18n="playback.settings">Settings</span>
                 </button>
             </div>
@@ -249,7 +307,7 @@
         <div class="settings-head">
             <h2 data-i18n="qr.title">Scan to open</h2>
             <button type="button" class="settings-close" id="qr-close" data-i18n-aria="settings.closeLabel" data-i18n-title="settings.close">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
         </div>
         <div class="qr-code" id="qr-code"></div>
@@ -257,12 +315,34 @@
         <button type="button" class="settings-save qr-copy" id="qr-copy" data-i18n="header.copy">Copy</button>
     </dialog>
 
+    <dialog class="settings-dialog" id="upload-dialog">
+        <form method="dialog" class="settings-form" id="upload-form">
+            <div class="settings-head">
+                <h2 data-i18n="upload.modalTitle">Upload manuscript</h2>
+                <button type="button" class="settings-close" id="upload-close" data-i18n-aria="settings.closeLabel" data-i18n-title="settings.close">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
+            <label class="settings-field" for="file-upload">
+                <span data-i18n="upload.choose">Manuscript file</span>
+                <input type="file" id="file-upload" accept=".txt,.docx,.pdf">
+                <small data-i18n="upload.accept">.txt, .docx or .pdf</small>
+            </label>
+
+            <label class="settings-check">
+                <input type="checkbox" id="auto-format" checked>
+                <span data-i18n="upload.auto">Auto-format on upload</span>
+            </label>
+        </form>
+    </dialog>
+
     <dialog class="settings-dialog" id="settings-dialog">
         <form method="dialog" class="settings-form" id="settings-form">
             <div class="settings-head">
                 <h2 data-i18n="settings.title">Prompter settings</h2>
                 <button type="button" class="settings-close" id="settings-close" data-i18n-aria="settings.closeLabel" data-i18n-title="settings.close">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
 
@@ -296,9 +376,14 @@
                 <small data-i18n="settings.scriptLangHelp">The language voice tracking listens for.</small>
             </label>
 
-            <label class="settings-check">
-                <input type="checkbox" id="settings-progress">
+            <label class="settings-field">
                 <span data-i18n="settings.progress">Timeline on the display</span>
+                <select id="settings-progress">
+                    <option value="hidden" data-i18n="settings.progressHidden">Hidden</option>
+                    <option value="top" data-i18n="settings.progressTop">Top</option>
+                    <option value="bottom" data-i18n="settings.progressBottom">Bottom</option>
+                </select>
+                <small data-i18n="settings.progressHelp">Where the progress bar sits on the display.</small>
             </label>
 
             <div class="settings-actions">

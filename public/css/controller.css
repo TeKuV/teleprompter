@@ -213,7 +213,7 @@ body {
     display: flex;
     align-items: stretch;
     gap: 8px;
-    margin-top: 10px;
+    margin-top: 0;
     flex-wrap: nowrap;
 }
 
@@ -230,8 +230,24 @@ body {
     padding-right: 12px;
 }
 
-.file-options .editor-format-control,
-.file-options > .format-btn {
+.file-options > #upload-btn {
+    flex: 0 0 auto;
+    min-width: 7em;
+    padding-left: 25px;
+    padding-right: 25px;
+    border-radius: 4px;
+    background: var(--active-bg);
+    border-color: var(--active-bg);
+    color: var(--active-fg);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.file-options > #upload-btn:hover {
+    background: color-mix(in srgb, var(--active-bg) 82%, var(--active-fg));
+    border-color: color-mix(in srgb, var(--active-bg) 82%, var(--active-fg));
+}
+
+.file-options .format-apply-control {
     flex: 1.4 1 0;
 }
 
@@ -483,7 +499,38 @@ body {
 }
 
 .control-btn .btn-icon {
-    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex: none;
+}
+
+.control-btn .btn-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.control-btn .btn-icon [data-play] {
+    display: none;
+}
+
+.control-btn .btn-icon[data-glyph="play"] [data-play="play"],
+.control-btn .btn-icon[data-glyph="pause"] [data-play="pause"] {
+    display: block;
+}
+
+.control-btn .btn-icon[data-glyph="count"] [data-play="count"] {
+    display: block;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
 }
 
 .control-btn.start {
@@ -610,20 +657,45 @@ body {
         overflow: visible;
     }
 
+    /* Two rows, two columns: title+theme on row one, the URL chips+device count on
+       row two. .connection-info wraps the theme toggle and the device count in the
+       markup, but the two need to land in different rows here, so it goes display:
+       contents and its children join this grid directly. */
     .controller-header {
-        flex-direction: column;
-        align-items: flex-start;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        column-gap: 12px;
+        row-gap: 10px;
         padding: 14px 16px;
-        gap: 12px;
     }
 
     .controller-header h1 {
+        grid-column: 1;
+        grid-row: 1;
         font-size: 20px;
     }
 
-    .connection-info {
-        gap: 10px 16px;
-        max-width: 100%;
+    .controller-header .connection-info {
+        display: contents;
+    }
+
+    .controller-header .theme-toggle {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .controller-header .header-urls {
+        grid-column: 1;
+        grid-row: 2;
+        justify-self: start;
+    }
+
+    .controller-header .device-count {
+        grid-column: 2;
+        grid-row: 2;
+        justify-self: end;
     }
 
     .controller-content {
@@ -677,8 +749,13 @@ body {
         width: 100%;
     }
 
+    .timer-info {
+        width: 100%;
+    }
+
     .timer-display {
-        justify-content: center;
+        width: 100%;
+        justify-content: space-between;
     }
 
     .control-panel-main .display-toggles {
