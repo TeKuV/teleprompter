@@ -8,6 +8,7 @@ class Teleprompter {
         this.segmentDuration = 10 * 60 * 1000; // 10 minutes in milliseconds
         this.speed = 150; // words per minute
         this.fontSize = 32;
+        this.lineHeight = 1.6;
         this.animationId = null;
         this.timerInterval = null;
         
@@ -77,12 +78,12 @@ class Teleprompter {
 
     initEditor() {
         this.prompterText.style.fontSize = `${this.fontSize}px`;
+        this.prompterText.style.lineHeight = String(this.lineHeight);
         this.editorToolbar = new EditorToolbar({
             editor: this.prompterText,
             toolbar: document.getElementById('editor-toolbar'),
             findBar: document.getElementById('editor-find'),
-            onChange: () => this.updateDurationCalculations(),
-            onFontSize: (size) => this.updateFontSize(size)
+            onChange: () => this.updateDurationCalculations()
         });
     }
     
@@ -167,11 +168,6 @@ class Teleprompter {
     updateSpeed(value) {
         this.speed = parseInt(value, 10);
         this.updateDurationCalculations();
-    }
-    
-    updateFontSize(value) {
-        this.fontSize = parseInt(value, 10);
-        this.prompterText.style.fontSize = `${this.fontSize}px`;
     }
     
     start() {

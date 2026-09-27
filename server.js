@@ -11,7 +11,18 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const SETTINGS_FILE = process.env.SETTINGS_FILE || path.join(__dirname, 'settings.json');
 // lang is what the reader says, uiLang is what the operator reads: two settings,
 // because a French bulletin is routinely run from an English interface.
-const DEFAULT_SETTINGS = { name: 'free Teleprompter', lang: '', uiLang: 'en', showProgress: false };
+const DEFAULT_SETTINGS = { name: 'free Teleprompter', lang: '', uiLang: 'en', showProgress: false, progressPosition: 'hidden' };
+
+function normalizeSettings(raw = {}) {
+    const settings = { ...DEFAULT_SETTINGS, ...raw };
+    if (raw.progressPosition === 'top' || raw.progressPosition === 'bottom' || raw.progressPosition === 'hidden') {
+        settings.progressPosition = raw.progressPosition;
+    } else {
+        settings.progressPosition = settings.showProgress ? 'bottom' : 'hidden';
+    }
+    settings.showProgress = settings.progressPosition !== 'hidden';
+    return settings;
+}
 
 // A station name has to outlive a restart, and the show state deliberately does not, so
 // the settings are the one thing kept on disk - one entry per session, since two people
@@ -31,7 +42,7 @@ function loadSettings(sessionId) {
     // A session gets its own saved settings or the defaults - never another session's.
     // Inheriting from `main` would mean one operator renaming their show quietly renames
     // every show started after it.
-    return { ...DEFAULT_SETTINGS, ...(file[sessionId] || {}) };
+    return normalizeSettings(file[sessionId] || {});
 }
 
 function saveSettings(sessionId, settings) {
@@ -146,6 +157,7 @@ function freshState(sessionId) {
         speed: 150,
         speedMultiplier: 1,
         fontSize: 48,
+        lineHeight: 1.6,
         segmentLength: 10 * 60, // 10 minutes in seconds
         segmentMinutes: 10,
         segmentSeconds: 0,
@@ -159,7 +171,7 @@ function freshState(sessionId) {
         hideTimer: true,
         onAir: false,
         scheduledStartTime: null,
-        readingLine: { enabled: false, position: 50, color: '#ffffff', thickness: 2 },
+        readingLine: { enabled: false, style: 'none', lastStyle: 'line', position: 50, color: '#ffffff', thickness: 2, size: 28, side: 'left' },
         settings: loadSettings(sessionId)
     };
 }
@@ -239,6 +251,15 @@ wss.on('connection', (ws, req) => {
                     currentState.fontSize = data.value;
                     broadcastToDisplays({ type: 'setFontSize', value: data.value });
                     break;
+
+                case 'setLineHeight': {
+                    const leading = Number(data.value);
+                    currentState.lineHeight = Number.isFinite(leading)
+                        ? Math.min(4, Math.max(1, Math.round(leading * 10) / 10))
+                        : currentState.lineHeight;
+                    broadcastToDisplays({ type: 'setLineHeight', value: currentState.lineHeight });
+                    break;
+                }
                     
                 case 'setSegmentLength':
                     currentState.segmentLength = data.totalSeconds || data.value || 10 * 60; // fallback to 10 minutes
@@ -271,24 +292,32 @@ wss.on('connection', (ws, req) => {
                     broadcastToControllers({ type: 'setOnAir', enabled: data.enabled });
                     break;
 
-                case 'setReadingLine':
+                case 'setReadingLine': {
+                    const style = data.style === 'arrow' || data.style === 'line' ? data.style : 'none';
+                    const lastStyle = data.lastStyle === 'arrow' || style === 'arrow' ? 'arrow' : 'line';
                     currentState.readingLine = {
-                        enabled: !!data.enabled,
+                        enabled: !!data.enabled && style !== 'none',
+                        style,
+                        lastStyle: style === 'arrow' || style === 'line' ? style : lastStyle,
                         position: Number(data.position) || 50,
                         color: data.color || '#ffffff',
-                        thickness: Number(data.thickness) || 2
+                        thickness: Number(data.thickness) || 2,
+                        size: Number(data.size) || 28,
+                        side: data.side === 'right' || data.side === 'both' ? data.side : 'left'
                     };
                     broadcastToDisplays({ type: 'setReadingLine', ...currentState.readingLine });
                     break;
+                }
                     
                 case 'setSettings':
-                    currentState.settings = {
+                    currentState.settings = normalizeSettings({
                         name: String(data.name ?? currentState.settings.name).slice(0, 60).trim()
                             || DEFAULT_SETTINGS.name,
                         lang: String(data.lang ?? currentState.settings.lang).slice(0, 15),
                         uiLang: String(data.uiLang ?? currentState.settings.uiLang).slice(0, 5),
-                        showProgress: !!(data.showProgress ?? currentState.settings.showProgress)
-                    };
+                        showProgress: data.showProgress,
+                        progressPosition: data.progressPosition
+                    });
                     saveSettings(session.id, currentState.settings);
                     // The name is on every controller and the interface language is on
                     // every screen, so both ends hear about it.

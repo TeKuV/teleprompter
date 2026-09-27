@@ -65,7 +65,8 @@ class TeleprompterController {
         this.speed = 150;
         this.speedMultiplier = 1;
         this.fontSize = 48;
-        this.readingLine = { enabled: false, position: 50, color: '#ffffff', thickness: 2 };
+        this.lineHeight = 1.6;
+        this.readingLine = { enabled: false, style: 'none', lastStyle: 'line', position: 50, color: '#ffffff', thickness: 2, size: 28, side: 'left' };
         this.timerInterval = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
@@ -75,7 +76,7 @@ class TeleprompterController {
         this.displayStateAt = 0;
         this.seekRaf = 0;
         this.prerollInterval = null;
-        this.settings = { name: document.title, lang: '', uiLang: resolveUiLang() };
+        this.settings = { name: document.title, lang: '', uiLang: resolveUiLang(), showProgress: false, progressPosition: 'hidden' };
         this.restoreSavedSettings();
         this.scheduledAt = null;
         this.scheduleWatch = null;
@@ -95,6 +96,9 @@ class TeleprompterController {
     
     initializeElements() {
         this.fileUpload = document.getElementById('file-upload');
+        this.uploadBtn = document.getElementById('upload-btn');
+        this.uploadDialog = document.getElementById('upload-dialog');
+        this.uploadClose = document.getElementById('upload-close');
         this.clearBtn = document.getElementById('clear-text');
         this.speedControl = document.getElementById('speed-control');
         this.speedDisplay = document.getElementById('speed-display');
@@ -145,25 +149,26 @@ class TeleprompterController {
         this.qrCloseBtn = document.getElementById('qr-close');
         this.formatBtn = document.getElementById('format-text');
         this.autoFormatBtn = document.getElementById('auto-format');
-        this.formatSettings = document.getElementById('format-settings');
-        this.formatPanel = document.getElementById('format-panel');
-        this.formatCapsCheckbox = document.getElementById('format-caps');
-        this.formatSentencesCheckbox = document.getElementById('format-sentences');
-        this.formatParagraphsCheckbox = document.getElementById('format-paragraphs');
-        this.formatPunctuationCheckbox = document.getElementById('format-punctuation');
+        this.formatFlags = { caps: true, sentences: true, paragraphs: true, punctuation: true };
         this.readingLineBtn = document.getElementById('reading-line-btn');
         this.readingLineSettings = document.getElementById('reading-line-settings');
         this.readingLinePanel = document.getElementById('reading-line-panel');
+        this.readingStylePicker = document.getElementById('reading-style-picker');
         this.readingLinePosition = document.getElementById('reading-line-position');
         this.readingLineThickness = document.getElementById('reading-line-thickness');
+        this.readingArrowSize = document.getElementById('reading-arrow-size');
+        this.readingArrowSide = document.getElementById('reading-arrow-side');
         this.readingLineSwatches = document.getElementById('reading-line-swatches');
+        this.readingPopupScrim = document.getElementById('reading-popup-scrim');
         this.exportTxtBtn = document.getElementById('export-txt');
+        this.fontSizeInput = document.getElementById('display-font-size');
+        this.lineHeightInput = document.getElementById('display-line-height');
         this.progressBar = document.getElementById('script-progress');
         this.progressWrap = this.progressBar?.parentElement;
     }
     
     bindEvents() {
-        this.fileUpload.addEventListener('change', (e) => this.handleFileUpload(e));
+        this.fileUpload?.addEventListener('change', (e) => this.handleFileUpload(e));
         this.clearBtn.addEventListener('click', () => this.clearText());
         this.exportTxtBtn.addEventListener('click', () => this.exportScript());
         this.mirrorModeCheckbox.addEventListener('change', (e) => this.updateMirrorMode(e.target.checked));
@@ -173,6 +178,7 @@ class TeleprompterController {
         this.bindSettings();
         this.bindReadingLine();
         this.bindFormatControl();
+        this.bindTypeControls();
         this.previewMirrorBtn?.addEventListener('click', () => this.togglePreviewMirror());
         document.querySelector('.display-toggles')?.addEventListener('focusin', () => this.pinShell());
         this.scheduledStartInput.addEventListener('change', () => this.updateScheduledStart());
@@ -181,7 +187,10 @@ class TeleprompterController {
         this.bindHotkeys();
         this.resetBtn.addEventListener('click', () => this.reset());
         this.bindQr();
-        this.formatBtn.addEventListener('click', () => this.formatTextForTeleprompter());
+        this.formatBtn?.addEventListener('click', () => {
+            this.closeFormatPanels();
+            this.formatTextForTeleprompter();
+        });
         this.bindProgressBar();
         
         this.textPreview.addEventListener('input', () => {
@@ -209,7 +218,6 @@ class TeleprompterController {
     }
 
     initEditor() {
-        this.textPreview.style.fontSize = `${this.fontSize}px`;
         this.editorToolbar = new EditorToolbar({
             editor: this.textPreview,
             toolbar: document.getElementById('editor-toolbar'),
@@ -217,9 +225,9 @@ class TeleprompterController {
             onChange: () => {
                 this.sendTextUpdate();
                 this.updateDurationCalculations();
-            },
-            onFontSize: (size) => this.updateFontSize(size)
+            }
         });
+        this.syncTypeInputs();
     }
 
     // The thumbnail runs display.html itself at 1280x720 and scales it down, so it is a
@@ -343,10 +351,9 @@ class TeleprompterController {
             this.textPreview.innerHTML = state.text;
             this.saveScript(state.text);
         }
-        if (Number.isFinite(state.fontSize)) {
-            this.fontSize = state.fontSize;
-            this.textPreview.style.fontSize = `${this.fontSize}px`;
-        }
+        if (Number.isFinite(state.fontSize)) this.fontSize = state.fontSize;
+        if (Number.isFinite(state.lineHeight)) this.lineHeight = state.lineHeight;
+        this.syncTypeInputs();
         if (Number.isFinite(state.speed)) {
             this.speed = state.speed;
             this.speedMultiplier = state.speedMultiplier || state.speed / 150;
@@ -420,6 +427,7 @@ class TeleprompterController {
         // Send all current settings
         this.sendMessage({ type: 'setSpeed', value: this.speed, multiplier: this.speedMultiplier });
         this.sendMessage({ type: 'setFontSize', value: this.fontSize });
+        this.sendMessage({ type: 'setLineHeight', value: this.lineHeight });
         this.updateDurationCalculations();
         this.sendMessage({ type: 'setMirrorMode', enabled: this.mirrorModeCheckbox.checked });
         this.sendMessage({ type: 'setHideTimer', enabled: !this.hideTimerCheckbox.checked });
@@ -439,26 +447,37 @@ class TeleprompterController {
             this.settingsName.value = this.settings.name;
             this.settingsLang.value = this.settings.lang;
             this.settingsUiLang.value = this.settings.uiLang;
-            this.settingsProgress.checked = !!this.settings.showProgress;
+            this.settingsProgress.value = this.settings.progressPosition === 'top'
+                || this.settings.progressPosition === 'bottom'
+                ? this.settings.progressPosition
+                : (this.settings.showProgress ? 'bottom' : 'hidden');
             this.settingsDialog.showModal();
         });
         // Both dismiss without saving, like the Escape key the dialog already handles.
         this.settingsCancel.addEventListener('click', () => this.settingsDialog.close());
         this.settingsClose?.addEventListener('click', () => this.settingsDialog.close());
         this.settingsForm.addEventListener('submit', () => {
+            const progressPosition = this.settingsProgress.value === 'top'
+                || this.settingsProgress.value === 'bottom'
+                ? this.settingsProgress.value
+                : 'hidden';
             const next = {
                 name: this.settingsName.value.trim() || this.settings.name,
                 lang: this.settingsLang.value,
                 uiLang: this.settingsUiLang.value,
-                showProgress: this.settingsProgress.checked
+                progressPosition,
+                showProgress: progressPosition !== 'hidden'
             };
             this.applySettings(next);
             this.sendMessage({ type: 'setSettings', ...next });
         });
     }
 
-    applySettings({ name, lang, uiLang, showProgress }) {
-        this.settings = { name, lang, uiLang: resolveUiLang(uiLang), showProgress: !!showProgress };
+    applySettings({ name, lang, uiLang, showProgress, progressPosition }) {
+        const pos = progressPosition === 'top' || progressPosition === 'bottom' || progressPosition === 'hidden'
+            ? progressPosition
+            : (showProgress ? 'bottom' : 'hidden');
+        this.settings = { name, lang, uiLang: resolveUiLang(uiLang), showProgress: pos !== 'hidden', progressPosition: pos };
         applyLanguage(this.settings.uiLang);
         // The recogniser follows the reader, so it takes the script language, never the
         // interface one: a French bulletin read from an English interface is normal.
@@ -575,17 +594,38 @@ class TeleprompterController {
 
     bindReadingLine() {
         if (!this.readingLineBtn) return;
-        this.readingLineBtn.addEventListener('click', () => {
-            this.readingLine.enabled = !this.readingLine.enabled;
+        this.readingLineBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = this.readingStylePicker.hidden;
+            this.closeReadingPopups();
+            if (!open) return;
+            this.readingStylePicker.hidden = false;
+            this.readingLineBtn.setAttribute('aria-expanded', 'true');
+            this.syncReadingScrim();
+        });
+        this.readingStylePicker?.addEventListener('click', (e) => {
+            const choice = e.target.closest('[data-style]');
+            if (!choice) return;
+            const style = choice.dataset.style === 'arrow' || choice.dataset.style === 'line'
+                ? choice.dataset.style
+                : 'none';
+            this.readingLine.style = style;
+            this.readingLine.enabled = style !== 'none';
+            if (style !== 'none') this.readingLine.lastStyle = style;
+            this.closeReadingPopups();
             this.syncReadingLineControls();
             this.sendReadingLine();
         });
         this.readingLineSettings?.addEventListener('click', (e) => {
             e.stopPropagation();
             const open = this.readingLinePanel.hidden;
-            this.readingLinePanel.hidden = !open;
-            this.readingLineSettings.setAttribute('aria-expanded', String(open));
+            this.closeReadingPopups();
+            if (!open) return;
+            this.readingLinePanel.hidden = false;
+            this.readingLineSettings.setAttribute('aria-expanded', 'true');
+            this.syncReadingScrim();
         });
+        this.readingPopupScrim?.addEventListener('click', () => this.closeReadingPopups());
         this.readingLinePosition?.addEventListener('input', () => {
             this.readingLine.position = Number(this.readingLinePosition.value);
             this.syncReadingLineControls();
@@ -593,6 +633,18 @@ class TeleprompterController {
         });
         this.readingLineThickness?.addEventListener('input', () => {
             this.readingLine.thickness = Number(this.readingLineThickness.value);
+            this.syncReadingLineControls();
+            this.sendReadingLine();
+        });
+        this.readingArrowSize?.addEventListener('input', () => {
+            this.readingLine.size = Number(this.readingArrowSize.value);
+            this.syncReadingLineControls();
+            this.sendReadingLine();
+        });
+        this.readingArrowSide?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-side]');
+            if (!btn) return;
+            this.readingLine.side = btn.dataset.side;
             this.syncReadingLineControls();
             this.sendReadingLine();
         });
@@ -604,55 +656,124 @@ class TeleprompterController {
             this.sendReadingLine();
         });
         document.addEventListener('click', (e) => {
-            if (!this.readingLinePanel || this.readingLinePanel.hidden) return;
             if (e.target.closest('.display-line-control')) return;
-            this.readingLinePanel.hidden = true;
-            this.readingLineSettings?.setAttribute('aria-expanded', 'false');
+            this.closeReadingPopups();
         });
+        document.addEventListener('appLanguageChange', () => this.syncReadingLineControls());
         this.syncReadingLineControls();
     }
 
-    bindFormatControl() {
-        if (!this.autoFormatBtn) return;
-        this.autoFormatBtn.addEventListener('click', () => {
-            const on = this.autoFormatBtn.getAttribute('aria-pressed') !== 'true';
-            this.autoFormatBtn.setAttribute('aria-pressed', String(on));
-        });
-        this.formatSettings?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const open = this.formatPanel.hidden;
-            this.formatPanel.hidden = !open;
-            this.formatSettings.setAttribute('aria-expanded', String(open));
-        });
-        document.addEventListener('click', (e) => {
-            if (!this.formatPanel || this.formatPanel.hidden) return;
-            if (e.target.closest('.editor-format-control')) return;
-            this.formatPanel.hidden = true;
-            this.formatSettings?.setAttribute('aria-expanded', 'false');
-        });
+    closeReadingPopups() {
+        if (this.readingLinePanel) this.readingLinePanel.hidden = true;
+        if (this.readingStylePicker) this.readingStylePicker.hidden = true;
+        this.readingLineSettings?.setAttribute('aria-expanded', 'false');
+        this.readingLineBtn?.setAttribute('aria-expanded', 'false');
+        this.syncReadingScrim();
+    }
+
+    syncReadingScrim() {
+        const open = (this.readingLinePanel && !this.readingLinePanel.hidden)
+            || (this.readingStylePicker && !this.readingStylePicker.hidden);
+        if (this.readingPopupScrim) this.readingPopupScrim.hidden = !open;
     }
 
     applyReadingLineControls(line) {
+        const style = line.style === 'arrow' || line.style === 'line' || line.style === 'none'
+            ? line.style
+            : (line.enabled ? 'line' : 'none');
+        const lastStyle = line.lastStyle === 'arrow' || line.style === 'arrow' ? 'arrow' : 'line';
         this.readingLine = {
-            enabled: !!line.enabled,
+            enabled: !!line.enabled && style !== 'none',
+            style,
+            lastStyle: style === 'arrow' || style === 'line' ? style : lastStyle,
             position: Math.min(80, Math.max(20, Number(line.position) || 50)),
             color: line.color || '#ffffff',
-            thickness: Math.min(8, Math.max(1, Number(line.thickness) || 2))
+            thickness: Math.min(8, Math.max(1, Number(line.thickness) || 2)),
+            size: Math.min(56, Math.max(16, Number(line.size) || 28)),
+            side: line.side === 'right' || line.side === 'both' ? line.side : 'left'
         };
         this.syncReadingLineControls();
     }
 
     syncReadingLineControls() {
-        const { enabled, position, color, thickness } = this.readingLine;
+        const { enabled, style, lastStyle, position, color, thickness, size, side } = this.readingLine;
+        const shown = style === 'arrow' || style === 'line' ? style : (lastStyle === 'arrow' ? 'arrow' : 'line');
         this.readingLineBtn?.setAttribute('aria-pressed', String(enabled));
+        if (this.readingLineBtn) this.readingLineBtn.dataset.guide = shown;
+        const label = document.getElementById('reading-guide-label');
+        const labelKey = shown === 'arrow' ? 'playback.arrow' : 'playback.line';
+        if (label) {
+            label.dataset.i18n = labelKey;
+            label.textContent = t(labelKey);
+        }
+        this.readingStylePicker?.querySelectorAll('[data-style]').forEach((btn) => {
+            btn.classList.toggle('is-active', btn.dataset.style === style);
+        });
+        this.readingLinePanel?.querySelectorAll('[data-guide]').forEach((el) => {
+            el.hidden = !el.dataset.guide.split(/\s+/).includes(style);
+        });
         if (this.readingLinePosition) this.readingLinePosition.value = String(position);
         if (this.readingLineThickness) this.readingLineThickness.value = String(thickness);
+        if (this.readingArrowSize) this.readingArrowSize.value = String(size);
         const posLabel = document.getElementById('reading-line-pos-label');
         const thickLabel = document.getElementById('reading-line-thick-label');
+        const sizeLabel = document.getElementById('reading-arrow-size-label');
         if (posLabel) posLabel.textContent = `${position}%`;
         if (thickLabel) thickLabel.textContent = `${thickness}px`;
+        if (sizeLabel) sizeLabel.textContent = `${size}px`;
+        this.readingArrowSide?.querySelectorAll('[data-side]').forEach((btn) => {
+            btn.classList.toggle('is-active', btn.dataset.side === side);
+        });
         this.readingLineSwatches?.querySelectorAll('[data-color]').forEach((btn) => {
             btn.classList.toggle('is-active', btn.dataset.color === color);
+        });
+    }
+
+    bindFormatControl() {
+        this.uploadBtn?.addEventListener('click', () => {
+            this.closeFormatPanels();
+            this.uploadDialog?.showModal();
+        });
+        this.uploadClose?.addEventListener('click', () => this.uploadDialog?.close());
+        this.uploadDialog?.addEventListener('click', (e) => {
+            if (e.target === this.uploadDialog) this.uploadDialog.close();
+        });
+        const inputs = document.querySelectorAll('[data-format-flag]');
+        inputs.forEach((input) => {
+            const key = input.dataset.formatFlag;
+            if (!(key in this.formatFlags)) return;
+            input.checked = this.formatFlags[key];
+            input.addEventListener('change', () => {
+                this.formatFlags[key] = input.checked;
+                inputs.forEach((other) => {
+                    if (other.dataset.formatFlag === key) other.checked = input.checked;
+                });
+            });
+        });
+        document.querySelectorAll('.editor-format-settings').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const panel = btn.closest('.editor-format-control')?.querySelector('.editor-format-panel');
+                if (!panel) return;
+                const open = panel.hidden;
+                this.closeFormatPanels(open ? panel : null);
+                panel.hidden = !open;
+                btn.setAttribute('aria-expanded', String(open));
+            });
+        });
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.editor-format-control')) return;
+            this.closeFormatPanels();
+        });
+    }
+
+    closeFormatPanels(keep) {
+        document.querySelectorAll('.editor-format-panel').forEach((panel) => {
+            if (panel === keep) return;
+            panel.hidden = true;
+            panel.closest('.editor-format-control')
+                ?.querySelector('.editor-format-settings')
+                ?.setAttribute('aria-expanded', 'false');
         });
     }
 
@@ -700,8 +821,11 @@ class TeleprompterController {
             }
             
             this.setPrompterText(text);
+            this.uploadDialog?.close();
         } catch (error) {
             alert(t('upload.readError') + error.message);
+        } finally {
+            event.target.value = '';
         }
     }
     
@@ -742,7 +866,7 @@ class TeleprompterController {
     }
     
     setPrompterText(text) {
-        if (this.autoFormatBtn?.getAttribute('aria-pressed') === 'true') {
+        if (this.autoFormatBtn?.checked) {
             text = this.formatTextForTeleprompterStandards(text);
         }
         this.textPreview.innerHTML = this.plainTextToHtml(text);
@@ -759,7 +883,8 @@ class TeleprompterController {
             type: 'setText',
             content: editor.innerHTML,
             styles: {
-                fontSize: editor.style.fontSize || '',
+                fontSize: `${this.fontSize}px`,
+                lineHeight: String(this.lineHeight),
                 textAlign: editor.style.textAlign || computed.textAlign || '',
                 fontWeight: editor.style.fontWeight || '',
                 fontStyle: editor.style.fontStyle || ''
@@ -821,10 +946,45 @@ class TeleprompterController {
         });
     }
     
+    bindTypeControls() {
+        const commit = (input, apply) => {
+            input.addEventListener('change', () => apply(input));
+            input.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                apply(input);
+                input.blur();
+            });
+        };
+        if (this.fontSizeInput) commit(this.fontSizeInput, (el) => this.updateFontSize(el.value));
+        if (this.lineHeightInput) commit(this.lineHeightInput, (el) => this.updateLineHeight(el.value));
+    }
+
+    syncTypeInputs() {
+        if (this.fontSizeInput) this.fontSizeInput.value = String(this.fontSize);
+        if (this.lineHeightInput) this.lineHeightInput.value = this.lineHeight.toFixed(1);
+    }
+
     updateFontSize(value) {
-        this.fontSize = parseInt(value, 10);
-        this.textPreview.style.fontSize = `${this.fontSize}px`;
+        const n = Math.min(160, Math.max(12, Math.round(Number(value))));
+        if (!Number.isFinite(n)) {
+            this.syncTypeInputs();
+            return;
+        }
+        this.fontSize = n;
+        this.syncTypeInputs();
         this.sendMessage({ type: 'setFontSize', value: this.fontSize });
+    }
+
+    updateLineHeight(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) {
+            this.syncTypeInputs();
+            return;
+        }
+        this.lineHeight = Math.min(4, Math.max(1, Math.round(n * 10) / 10));
+        this.syncTypeInputs();
+        this.sendMessage({ type: 'setLineHeight', value: this.lineHeight });
     }
     
     pinShell() {
@@ -998,7 +1158,7 @@ class TeleprompterController {
     }
 
     showPrerollOnButton(left) {
-        if (this.playIcon) this.playIcon.textContent = String(left);
+        this.setPlayGlyph('count', String(left));
         if (this.playLabel) this.playLabel.textContent = t('playback.starting');
     }
 
@@ -1010,9 +1170,16 @@ class TeleprompterController {
         this.playBtn.classList.toggle('pause', playing);
         this.playBtn.setAttribute('aria-pressed', String(playing));
         this.playBtn.setAttribute('aria-label', playing ? t('playback.pause') : idle);
-        if (this.playIcon) this.playIcon.textContent = playing ? '⏸' : '▶';
+        this.setPlayGlyph(playing ? 'pause' : 'play');
         if (this.playLabel) this.playLabel.textContent = playing ? t('playback.pause') : idle;
         this.updatePreviewBadge();
+    }
+
+    setPlayGlyph(kind, count) {
+        if (!this.playIcon) return;
+        this.playIcon.dataset.glyph = kind;
+        const n = this.playIcon.querySelector('[data-play="count"]');
+        if (kind === 'count' && n) n.textContent = count;
     }
 
     start(afterPreroll = false) {
@@ -1458,22 +1625,10 @@ class TeleprompterController {
     formatTextForTeleprompterStandards(text) {
         let formattedText = text;
         
-        // Apply selected formatting options
-        if (this.formatCapsCheckbox.checked) {
-            formattedText = this.convertToUppercase(formattedText);
-        }
-        
-        if (this.formatPunctuationCheckbox.checked) {
-            formattedText = this.enhancePunctuationPauses(formattedText);
-        }
-        
-        if (this.formatSentencesCheckbox.checked) {
-            formattedText = this.formatSentenceBreaks(formattedText);
-        }
-        
-        if (this.formatParagraphsCheckbox.checked) {
-            formattedText = this.addParagraphBreaks(formattedText);
-        }
+        if (this.formatFlags.caps) formattedText = this.convertToUppercase(formattedText);
+        if (this.formatFlags.punctuation) formattedText = this.enhancePunctuationPauses(formattedText);
+        if (this.formatFlags.sentences) formattedText = this.formatSentenceBreaks(formattedText);
+        if (this.formatFlags.paragraphs) formattedText = this.addParagraphBreaks(formattedText);
         
         return formattedText;
     }

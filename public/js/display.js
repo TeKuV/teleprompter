@@ -12,6 +12,7 @@ class TeleprompterDisplay {
         this.speed = 150;
         this.speedMultiplier = 1;
         this.fontSize = 48;
+        this.lineHeight = 1.6;
         this.readingLinePos = 50;
         this.pxPerWord = null;
         this.timerInterval = null;
@@ -205,7 +206,7 @@ class TeleprompterDisplay {
                 
             case 'settings':
                 applyLanguage(data.uiLang);
-                this.setProgressLine(data.showProgress);
+                this.setProgressLine(data);
                 break;
 
             case 'setText':
@@ -218,6 +219,10 @@ class TeleprompterDisplay {
                 
             case 'setFontSize':
                 this.applyFontSize(data.value);
+                break;
+
+            case 'setLineHeight':
+                this.applyLineHeight(data.value);
                 break;
                 
             case 'setSegmentLength':
@@ -296,10 +301,11 @@ class TeleprompterDisplay {
         
         if (state.settings) {
             applyLanguage(state.settings.uiLang);
-            this.setProgressLine(state.settings.showProgress);
+            this.setProgressLine(state.settings);
         }
         this.applySpeed(state.speed, state.speedMultiplier);
         this.applyFontSize(state.fontSize);
+        this.applyLineHeight(state.lineHeight);
         if (Number.isFinite(state.segmentLength)) {
             this.segmentDuration = Math.max(1000, state.segmentLength * 1000);
         }
@@ -359,6 +365,7 @@ class TeleprompterDisplay {
         if (styles.fontWeight) this.prompterText.style.fontWeight = styles.fontWeight;
         if (styles.fontStyle) this.prompterText.style.fontStyle = styles.fontStyle;
         if (styles.fontSize) this.applyFontSize(parseFloat(styles.fontSize));
+        if (styles.lineHeight) this.applyLineHeight(parseFloat(styles.lineHeight));
     }
 
     escapeHtml(text) {
@@ -373,13 +380,25 @@ class TeleprompterDisplay {
         document.body.classList.toggle('mirror-mode', !!enabled);
     }
 
-    setReadingLine({ enabled, position, color, thickness } = {}) {
+    setReadingLine({ enabled, style, position, color, thickness, size, side } = {}) {
         this.readingLinePos = Math.min(80, Math.max(20, Number(position) || 50));
         if (!this.readingLine) return;
+        const kind = style === 'arrow' ? 'arrow' : 'line';
+        const arrowSize = Math.min(56, Math.max(16, Number(size) || 28));
+        const place = side === 'right' || side === 'both' ? side : 'left';
         this.readingLine.hidden = !enabled;
+        this.readingLine.dataset.style = kind;
+        this.readingLine.dataset.side = place;
         this.readingLine.style.setProperty('--reading-line-pos', `${this.readingLinePos}%`);
         this.readingLine.style.setProperty('--reading-line-color', color || '#ffffff');
         this.readingLine.style.setProperty('--reading-line-thickness', `${Math.min(8, Math.max(1, Number(thickness) || 2))}px`);
+        this.readingLine.style.setProperty('--reading-arrow-size', `${arrowSize}px`);
+        const area = this.readingLine.parentElement;
+        if (area) {
+            area.dataset.guide = enabled && kind === 'arrow' ? 'arrow' : 'off';
+            area.dataset.guideSide = place;
+            area.style.setProperty('--reading-arrow-size', `${arrowSize}px`);
+        }
     }
     
     setHideTimer(enabled) {
@@ -529,6 +548,15 @@ class TeleprompterDisplay {
         this.updateDisplay();
     }
 
+    applyLineHeight(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return;
+        this.lineHeight = n;
+        this.prompterText.style.lineHeight = String(n);
+        this.invalidateMetrics();
+        this.updateDisplay();
+    }
+
     invalidateMetrics() {
         this.advancePosition();
         this.pxPerWord = null;
@@ -635,11 +663,15 @@ class TeleprompterDisplay {
         }, 1000);
     }
 
-    setProgressLine(enabled) {
+    setProgressLine(settings = {}) {
         if (!this.progressLine) return;
+        const pos = settings.progressPosition === 'top' || settings.progressPosition === 'bottom'
+            || settings.progressPosition === 'hidden'
+            ? settings.progressPosition
+            : (settings.showProgress ? 'bottom' : 'hidden');
+        const enabled = pos !== 'hidden';
         this.progressLine.hidden = !enabled;
-        // Paint it at once: turned on while the show is paused, nothing else would
-        // redraw it and the line would sit empty under a half-read script.
+        this.progressLine.dataset.position = enabled ? pos : 'hidden';
         this.updateProgressLine();
     }
 

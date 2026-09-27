@@ -5,7 +5,18 @@
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teleprompter Display</title>
+    <!-- Installable as its own app: a shortcut that opens straight to the prompter
+         screen in fullscreen, no browser chrome. See manifest-controller.json for the
+         operator panel's own shortcut. -->
+    <link rel="manifest" href="manifest-display.json">
+    <meta name="theme-color" content="#101010">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon-display.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Prompter">
     <script src="js/i18n.js"></script>
+    <script src="js/pwa.js"></script>
     <link rel="stylesheet" href="css/display.css">
 </head>
 <body>
@@ -34,9 +45,8 @@
                 <p data-i18n="display.waiting">Waiting for controller connection...</p>
                 <p data-i18n="display.waitingHint">Open the controller page to load your manuscript and begin prompting.</p>
             </div>
+            <div class="display-progress" id="display-progress" data-position="hidden" hidden><span id="display-progress-fill"></span></div>
         </div>
-        
-        <div class="display-progress" id="display-progress" hidden><span id="display-progress-fill"></span></div>
 
         <div class="fullscreen-hint" id="fullscreen-hint" data-i18n="display.fullscreenHint">Press any key for fullscreen</div>
         
@@ -46,7 +56,9 @@
         </div>
         
         <div class="connection-status" id="connection-status">
-            <span class="status-indicator disconnected">●</span>
+            <span class="status-indicator disconnected">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/></svg>
+            </span>
             <span class="status-text">Disconnected</span>
         </div>
     </div>
