@@ -1,0 +1,27 @@
+# free Teleprompter - Caddy vhost, used by the "caddy" service in docker-compose.prod.yml.
+# Caddy obtains and renews the Let's Encrypt certificate for DOMAIN by itself - no certbot,
+# no cron job, no manual renewal. It needs port 80 reachable from the internet for the
+# ACME HTTP challenge, and DOMAIN must already resolve to this host.
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+    # Reaches the app over the compose network by service name, not by the host port -
+    # this works whether or not teleprompter's 8080 is also published on 127.0.0.1.
+    reverse_proxy teleprompter:8080
+
+    # TLS is not cosmetic here: the voice-tracking feature uses SpeechRecognition, which
+    # browsers refuse outside a secure context, and the Copy buttons need it for
+    # navigator.clipboard.
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options    "nosniff"
+        Referrer-Policy           "same-origin"
+    }
+
+    # The app serves no cache headers of its own and its asset URLs carry no version, so
+    # a browser is free to keep a stale controller.js next to a fresh controller.css after
+    # a deploy. Revalidate instead; the whole payload is well under 200 KB.
+    header Cache-Control "no-cache"
+}

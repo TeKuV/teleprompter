@@ -285,7 +285,19 @@ things depend on it beyond the usual reasons:
   the page has fallbacks for both, but the Copy buttons only reach the modern path on
   HTTPS. Serving the prompter over TLS is what makes them behave normally.
 
-A Caddyfile is the whole of it:
+Two ways to get there:
+
+- **Caddy in the compose stack** (`docker-compose.prod.yml` already has the service):
+  copy `.env.example` to `.env` next to the compose file, set `DOMAIN` to a hostname
+  that already resolves to this VPS and `ACME_EMAIL` to an address you check, then
+  `docker compose -f docker-compose.prod.yml up -d`. Caddy requests and renews the
+  Let's Encrypt certificate for `DOMAIN` itself - nothing else to install. It needs
+  ports 80 and 443 free on the host (the ACME challenge answers on 80).
+- **nginx + certbot on the host**, if TLS should terminate outside Docker or something
+  else already owns 80/443: `deploy/nginx.conf` is the full vhost, certificate request
+  included in its header comment.
+
+A minimal Caddyfile, for reference, is the whole of the reverse-proxy part:
 
 ```
 prompter.example.com {

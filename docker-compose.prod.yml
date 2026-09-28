@@ -31,5 +31,34 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Terminates TLS and gets its certificate from Let's Encrypt on its own - no certbot,
+  # no renewal cron job. Needs DOMAIN and ACME_EMAIL in a .env file beside this compose
+  # file, and DOMAIN must already resolve to this host with 80/443 reachable from the
+  # internet (the ACME HTTP challenge answers on 80). See deploy/Caddyfile.
+  # Prefer the host-level nginx + certbot setup in deploy/nginx.conf instead if TLS
+  # already terminates elsewhere on this machine.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - teleprompter
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, see .env.example}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   prompter-data:
+  caddy-data:
+  caddy-config:
